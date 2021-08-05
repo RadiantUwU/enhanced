@@ -1,6 +1,7 @@
 # forbiddenfruit - Patch built-in python objects
 #
 # Copyright (c) 2013-2020  Lincoln de Sousa <lincoln@clarete.li>
+# https://github.com/clarete/forbiddenfruit
 #
 # This program is dual licensed under GPLv3 and MIT.
 #
