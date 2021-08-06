@@ -22,6 +22,8 @@
 import copy
 import json
 import traceback
+from types import FunctionType
+from typing import Tuple
 import forbiddenfruit
 import gc
 import time
@@ -32,13 +34,15 @@ import multiprocessing
 import psutil
 import weakref
 import sys
+import socket
+import pickle
 
 
 def passkw(*args,**kwargs):
     pass
 dict_keys = type(dict().keys())
 dict_values = type(dict().values())
-function = type(passkw)
+function = FunctionType
 class CacherMap:
     def __init__(self) -> None:
         self.map = {}
@@ -389,7 +393,7 @@ class enhancedobject:
             self.__init__(*args,**kwargs)
         else:
             raise AlreadyInitializedWarning
-    def ondelete(self) -> None:
+    def ondelete(self,deletedalready=False) -> None:
         print_debug("Enhancedobject " + hex(id(self)).replace("0x","__").upper().replace("__","0x") + " got deleted.")
     def ongcdelete(self) -> None:
         print_debug("Enhancedobject " + hex(id(self)).replace("0x","__").upper().replace("__","0x") + " got gc'd.")
@@ -429,7 +433,7 @@ class enhancedobject:
         return gc.get_referrers(self)
     def __del__(self) -> None:
         if not self.__deleted:
-            self.ondelete()
+            self.ondelete(True)
             self.__deleted = True
             self.deleted = True
         self.ongcdelete()
@@ -632,8 +636,10 @@ def getdirstr(obj : object,noreserved : bool=False) -> str:
     return e[:-1]
 class thread(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
+        if name is None:
+            name = "Thread-" + hex(id(self)).replace("0x","__").upper().replace("__","0x")
+        threading.Thread.__init__(self,group=group,target=target,name=name,args=args,kwargs=kwargs,daemon=daemon)
         self.name = name
-        threading.Thread.__init__(self,group,target,name,args,kwargs,daemon)
     def get_id(self):
         if hasattr(self, '_thread_id'):
             return self._thread_id
@@ -682,34 +688,93 @@ def checkMem(threshold : int=250,freeze : bool=True,printwarn : bool = True) -> 
         raise MemoryError
     else:
         return 1
-if False:
-    pass
-    #class Dict:
-    #    pass
-    #class Dict(enhancedobject):
-    #    def onpreinit(self,*args,**kwargs) -> None:
-    #        self.thedict = dict(*args,**kwargs)
-    #    def __len__(self) -> int:
-    #        return len(self.thedict)
-    #    def __getitem__(self, key) -> Any:
-    #        return self.thedict[key]
-    #    def __setitem__(self, key, value) -> Any:
-    #        self.thedict[key] = value
-    #    def __delitem__(self, key) -> Any:
-    #        del self.thedict[key]
-    #    def __contains__(self, obj) -> bool:
-    #        return obj in self.thedict
-    #    def clear(self) -> None:
-    #        self.thedict.clear()
-    #    def copy(self) -> Dict:
-    #        return self.shallowCopy()
-    #    def __list__(self) -> list:
-    #        return list(self.thedict)
-    #    def __hash__(self) -> int:
-    #        return hash(json.dumps(copy.deepcopy(self.thedict), sort_keys=True))
-    #    def __iter__(self) -> Iterator[dict]:
-    #        return iter(hash)
-    #    #@classmethod
-    #    #def fromkeys(cls)
+def ServerConnectionHandler(connection : Tuple[socket.socket,Tuple[str,int]]):
+    sock = Socket.__new__(Socket)
+    sock._socket = connection[0]
+    sock.address = connection[1]
+    return sock
+class Socket:
+    """A network socket. You can send anything through it."""
+    def __init__(self,address : Tuple[str,int]):
+        """Create a new socket on address"""
+        self.address = address
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.connect(address)
+    def send(self,data,internalinstruction=False) -> None:
+        """Sends data. It gets converted into a bytes object by pickle module and sent."""
+        if not self.issocketclosed:
+            try:
+                data_to_send = pickle.dumps(data)
+                self._socket.send(
+                    pickle.dumps(
+                        {
+                            "size":len(data_to_send),
+                            "internal":internalinstruction
+                        }
+                    )
+                )
+                self._socket.send(
+                    data_to_send
+                )
+            except ConnectionResetError:
+                self.issocketclosed = True
+                raise
+    def read(self,decode=True) -> object:
+        """Reads data.\n
+        It gets returned as a bytes object if decode is False"""
+        if not self.issocketclosed:
+            try:
+                size = pickle.loads(self._socket.recv(1024))['size']
+                raw_data = self._socket.recv(size)
+                if decode:
+                    try:
+                        return pickle.loads(raw_data)
+                    except pickle.PickleError:
+                        print_err("Connection error. Socket id {sockid} will be closed.".format(sockid=id(self)))
+                        self.send(self.internalinstr("disconnect","PickleError"),True)
+                        self.close()
+                else:
+                    return raw_data
+            except ConnectionResetError:
+                self.issocketclosed = True
+                raise
+    @staticmethod
+    def internalinstr(inst,arg1=None,arg2=None):
+        instructions = {
+            "disconnect":{
+                "type":"disconnect",
+                "message":str(arg1)
+            }
+        }
+        return instructions[inst]
+    def close(self):
+        try:
+            self._socket.close()
+            self.issocketclosed = True
+        except ConnectionResetError:
+            pass
+class ListeningServerSocket:
+    """A listening network socket."""
+    def __init__(self, address: Tuple[str, int]):
+        """Make a listening network socket on the address."""
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.bind(address)
+        self._socket.listen(4)
+        self.newconnections = []
+        self.connections = []
+        self.listening = False
+        self.__listeningthread = None
+    def listen(self,functonconnect : FunctionType=None):
+        if not self.listening:
+            self.listening = True
+            self.__listeningthread = thread(target=self.__class__.__listen,args=(self,functonconnect))
+            self.__listeningthread.start()
+    def __listen(self,functonconnect):
+        while True:
+            c = ServerConnectionHandler(self._socket.accept())
+            self.connections.append(c)
+            self.newconnections.append(c)
+            if functonconnect is not None:
+                functonconnect(c)
 if __name__ == "__main__":
     Shell().run(globals())
