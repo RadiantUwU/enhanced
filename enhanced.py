@@ -22,7 +22,7 @@
 import copy
 import json
 import traceback
-from types import FunctionType
+from types import FunctionType, ModuleType
 from typing import Tuple
 import forbiddenfruit
 import gc
@@ -43,6 +43,7 @@ def passkw(*args,**kwargs):
 dict_keys = type(dict().keys())
 dict_values = type(dict().values())
 function = FunctionType
+module = ModuleType
 class CacherMap:
     def __init__(self) -> None:
         self.map = {}
@@ -688,7 +689,7 @@ def checkMem(threshold : int=250,freeze : bool=True,printwarn : bool = True) -> 
         raise MemoryError
     else:
         return 1
-def ServerConnectionHandler(connection : Tuple[socket.socket,Tuple[str,int]]):
+def __servcontosock(connection : Tuple[socket.socket,Tuple[str,int]]):
     sock = Socket.__new__(Socket)
     sock._socket = connection[0]
     sock.address = connection[1]
@@ -771,10 +772,34 @@ class ListeningServerSocket:
             self.__listeningthread.start()
     def __listen(self,functonconnect):
         while True:
-            c = ServerConnectionHandler(self._socket.accept())
+            c = __servcontosock(self._socket.accept())
             self.connections.append(c)
             self.newconnections.append(c)
             if functonconnect is not None:
                 functonconnect(c)
+def __dir__():
+    l = [
+        "passkw",
+        "dict_keys","dict_values","function","module",
+        "CacherMap","Cacher",
+        "MathMisc","primenum","Fraction",
+        "waituntil",
+        "update_obj",
+        "getError","printError",
+        "AttributableObject","enhancedobject",
+        "AlreadyInitializedWarning",
+        "terminalcolors","print_color","print_rainbow",
+        "PropertyFunc",
+        "Shell","isolated_exec",
+        "print_info","print_warn","print_err","print_fatalerr","print_extra","print_debug",
+        "make2digit","gettime",
+        "getdir","getdirstr","objtodict",
+        "thread","run_with_multiprocessing","run_with_disabled_keyboardinterrupt",
+        "getAvailMem","checkMem",
+        "Socket","ListeningServerSocket",
+        "__dir__"
+        ]
+    l.sort()
+    return l
 if __name__ == "__main__":
     Shell().run(globals())
