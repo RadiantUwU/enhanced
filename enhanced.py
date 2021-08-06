@@ -23,7 +23,7 @@ import copy
 import json
 import traceback
 from types import FunctionType, ModuleType
-from typing import Tuple
+from typing import List, Tuple
 import forbiddenfruit
 import gc
 import time
@@ -638,7 +638,7 @@ def getdirstr(obj : object,noreserved : bool=False) -> str:
 class thread(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
         if name is None:
-            name = "Thread-" + hex(id(self)).replace("0x","__").upper().replace("__","0x")
+            name = "Thread-" + hex(self.get_id()).replace("0x","__").upper().replace("__","0x")
         threading.Thread.__init__(self,group=group,target=target,name=name,args=args,kwargs=kwargs,daemon=daemon)
         self.name = name
     def get_id(self):
@@ -694,7 +694,7 @@ def __servcontosock(connection : Tuple[socket.socket,Tuple[str,int]]):
     sock._socket = connection[0]
     sock.address = connection[1]
     return sock
-class Socket:
+class Socket(enhancedobject):
     """A network socket. You can send anything through it."""
     def __init__(self,address : Tuple[str,int]):
         """Create a new socket on address"""
@@ -754,15 +754,15 @@ class Socket:
             self.issocketclosed = True
         except ConnectionResetError:
             pass
-class ListeningServerSocket:
+class ListeningServerSocket(enhancedobject):
     """A listening network socket."""
     def __init__(self, address: Tuple[str, int]):
         """Make a listening network socket on the address."""
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.bind(address)
         self._socket.listen(4)
-        self.newconnections = []
-        self.connections = []
+        self.newconnections : List[Socket] = []
+        self.connections : List[Socket]= []
         self.listening = False
         self.__listeningthread = None
     def listen(self,functonconnect : FunctionType=None):
@@ -777,6 +777,14 @@ class ListeningServerSocket:
             self.newconnections.append(c)
             if functonconnect is not None:
                 functonconnect(c)
+            self.checkforclosedcons()
+    def checkforclosedcons(self):
+        for index,i in enumerate(self.connections):
+            if i.issocketclosed:
+                del self.connections[index]
+        for index,i in enumerate(self.newconnections):
+            if i.issocketclosed:
+                del self.newconnections[index]
 def __dir__():
     l = [
         "passkw",
