@@ -616,7 +616,7 @@ def print_rainbow(string : str,thetype : int=0,end : str="\n") -> None:
     Type(default 0): Type, for more info, do terminalcolors.typetest
     End(default \\n): End of print"""
     print(rainbowify(string,thetype),end=end)
-def rainbowify(string : str,thetype : int) -> str:
+def rainbowify(string : str,thetype : int=0) -> str:
     """Rainbowifies string, makes it rainbow when printed."""
     newstr = copy.copy(terminalcolors.types[thetype % 4])
     i = 0
@@ -750,46 +750,38 @@ class Socket(enhancedobject):
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._socket.connect(address)
         else:
-            self._socket = socket
+            self._socket = thesocket
         self.issocketclosed = False
     def send(self,data,internalinstruction=False) -> None:
         """Sends data. It gets converted into a bytes object by pickle module and sent."""
         if not self.issocketclosed:
             try:
-                data_to_send = pickle.dumps(data)
                 self._socket.send(
                     pickle.dumps(
                         {
-                            "size":len(data_to_send),
-                            "internal":internalinstruction
+                            "internal":internalinstruction,
+                            "message":data
                         }
                     )
-                )
-                self._socket.send(
-                    data_to_send
                 )
             except ConnectionResetError:
                 self.issocketclosed = True
                 raise
-    def read(self,decode=True) -> object:
+    def read(self,buffer_size : int) -> Any:
         """Reads data.\n
         It gets returned as a bytes object if decode is False"""
         if not self.issocketclosed:
             try:
-                size = pickle.loads(self._socket.recv(1024))['size']
-                raw_data = self._socket.recv(size)
-                if decode:
-                    try:
-                        return pickle.loads(raw_data)
-                    except pickle.PickleError:
-                        print_err("Connection error. Socket id {sockid} will be closed.".format(sockid=id(self)))
-                        self.send(self.internalinstr("disconnect","PickleError"),True)
-                        self.close()
-                else:
-                    return raw_data
+                data = pickle.loads(self._socket.recv(buffer_size))
+                return data
             except ConnectionResetError:
                 self.issocketclosed = True
                 raise
+            except pickle.PickleError:
+                print_err("Connection error. Socket id {sockid} will be closed.".format(sockid=id(self)))
+                self.send(self.internalinstr("disconnect","PickleError"),True)
+                self.close()
+                self.issocketclosed = True
     @staticmethod
     def internalinstr(inst,arg1=None,arg2=None):
         instructions = {
