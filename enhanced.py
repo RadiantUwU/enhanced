@@ -738,18 +738,20 @@ else:
     getAvailMem = passkw
     checkMem = passkw
     print_warn("getAvailMem and checkMem will be unavailable due to psutil import error.")
-def __servcontosock(connection : Tuple[socket.socket,Tuple[str,int]]):
-    sock = Socket.__new__(Socket)
-    sock._socket = connection[0]
-    sock.address = connection[1]
+def servcontosock(connection : Tuple[socket.socket,Tuple[str,int]]):
+    sock = Socket(connection[1],connection[0])
     return sock
 class Socket(enhancedobject):
     """A network socket. You can send anything through it."""
-    def oninit(self,address : Tuple[str,int]):
+    def oninit(self,address : Tuple[str,int],thesocket : socket.SocketType=None,**kwargs):
         """Create a new socket on address"""
         self.address = address
-        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self._socket.connect(address)
+        if thesocket is None:
+            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._socket.connect(address)
+        else:
+            self._socket = socket
+        self.issocketclosed = False
     def send(self,data,internalinstruction=False) -> None:
         """Sends data. It gets converted into a bytes object by pickle module and sent."""
         if not self.issocketclosed:
@@ -821,7 +823,7 @@ class ListeningServerSocket(enhancedobject):
             self.__listeningthread.start()
     def __listen(self,functonconnect):
         while True:
-            c = __servcontosock(self._socket.accept())
+            c = servcontosock(self._socket.accept())
             self.connections.append(c)
             self.newconnections.append(c)
             if functonconnect is not None:
@@ -853,7 +855,7 @@ def __dir__():
         "getdir","getdirstr","objtodict",
         "thread","run_with_multiprocessing","run_with_disabled_keyboardinterrupt",
         "getAvailMem","checkMem",
-        "Socket","ListeningServerSocket",
+        #"Socket","ListeningServerSocket","servcontosock",
         "__dir__","pythonapi",
         "CString"
         ]
