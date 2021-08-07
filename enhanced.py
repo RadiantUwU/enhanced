@@ -18,12 +18,12 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
+psutil = None
 import copy
 import json
 import traceback
 from types import FunctionType, ModuleType
-from typing import List, Tuple
+from typing import Any, List, Tuple
 import forbiddenfruit
 import gc
 import time
@@ -31,12 +31,10 @@ import inspect
 import ctypes
 import threading
 import multiprocessing
-import psutil
 import weakref
 import sys
 import socket
 import pickle
-
 
 def passkw(*args,**kwargs):
     pass
@@ -44,6 +42,18 @@ dict_keys = type(dict().keys())
 dict_values = type(dict().values())
 function = FunctionType
 module = ModuleType
+class CString:
+    """Array of characters"""
+    def __new__(self,string : str,length : int=None):
+        """Converts python string to C string."""
+        if length is None:
+            ch = (ctypes.c_char * len(string))()
+            ch.value = string.encode()
+            return ch
+        else:
+            ch = (ctypes.c_char * int(length))()
+            ch.value = string.encode()
+            return ch
 class CacherMap:
     def __init__(self) -> None:
         self.map = {}
@@ -276,11 +286,14 @@ def waituntil(cond : str,vars : dict={},interval : int=0.01):
     while not eval(cond,vars):
         time.sleep(interval)
 @forbiddenfruit.curses(dict,'index')
-def index_dict(self,value):
+def index_dict(self,value) -> Any:
     if value in self.values():
         return list(self.keys())[list(self.values()).index(value)]
     else:
         raise IndexError("Key with value " + str(value) + " does not exist.")
+@forbiddenfruit.curses(dict,'hash')
+def hash_dict(self) -> int:
+    return hash(json.dumps(copy.deepcopy(self), sort_keys=True))
 def update_obj(obj,old,new):
     immuttables = (tuple,str,type(dict().keys()),type(dict().values()),set,frozenset)
     if type(obj) in immuttables:
@@ -324,7 +337,7 @@ class terminalcolors:
         typetest += types[i]
         typetest += str(i)
         typetest += types[0]
-class enhancedobject:
+class enhancedobject(object):
     @classmethod
     def __new__(cls,*args,**kwargs) -> enhancedobject:
         self = object.__new__(cls)
@@ -395,10 +408,10 @@ class enhancedobject:
         else:
             raise AlreadyInitializedWarning
     def ondelete(self,deletedalready=False) -> None:
-        print_debug("Enhancedobject " + hex(id(self)).replace("0x","__").upper().replace("__","0x") + " got deleted.")
+        pass
     def ongcdelete(self) -> None:
-        print_debug("Enhancedobject " + hex(id(self)).replace("0x","__").upper().replace("__","0x") + " got gc'd.")
-    def delete(self) -> None:
+        print_debug("EnhancedObject Object has been deleted by GC.")
+    def delete(self,force=False) -> None:
         self.ondelete()
         ref = gc.get_referrers(self)
         immuttables = (tuple,str,type(dict().keys()),type(dict().values()),set,frozenset)
@@ -426,6 +439,8 @@ class enhancedobject:
                 pass
         self.__deleted = True
         self.deleted = True
+        if force:
+            self.forcedel()
     def hash(self) -> int:
         """Returns object's hash."""
         return hash(self)
@@ -438,9 +453,18 @@ class enhancedobject:
             self.__deleted = True
             self.deleted = True
         self.ongcdelete()
-    def getReferenceCount(self) -> int:
-        """Returns reference count from the sys module."""
-        return sys.getrefcount(self)
+    def getActiveReferencesCount(self) -> int:
+        """Returns active references"""
+        e = self.getReferences()
+        for i in e:
+            if inspect.isframe(i):
+                e.remove(i)
+        return len(e)
+    def getReferenceCount(self) -> Tuple[int,int]:
+        """Returns reference count from the sys module.
+        0th position in tuple is total references
+        1st position in tuple is active references"""
+        return (sys.getrefcount(self),self.getActiveReferencesCount())
     def getWeakReferenceCount(self) -> int:
         """Returns weak reference count from the sys module."""
         return weakref.getweakrefcount(self)
@@ -453,6 +477,18 @@ class enhancedobject:
     def hash(self) -> int:
         """Returns the object's hash."""
         return hash(self)
+    def inc_ref(self) -> None:
+        """Tells the system that another reference of this object has been made."""
+        ctypes.pythonapi.Py_IncRef(ctypes.py_object(self))
+    def dec_ref(self) -> None:
+        """Tells the system that a reference of this object has been deleted.\n
+        When there are no active references of this object, this object will be deallocated.\n
+        After it has been deallocated, ANY interactions with this deleted object will CRASH python."""
+        ctypes.pythonapi.Py_DecRef(ctypes.py_object(self))
+    def forcedel(self) -> None:
+        """This function is highly unstable and crashes python all the time. Its recommended to use the normal delete(True) instead."""
+        e = ctypes.py_object(self)
+        for _ in range(self.getActiveReferencesCount()):pythonapi.Py_DecRef(e)
 def printError():
     print(terminalcolors.red + traceback.format_exc() + terminalcolors.reset)
     return terminalcolors.red + traceback.format_exc() + terminalcolors.reset
@@ -662,33 +698,42 @@ def run_with_disabled_keyboardinterrupt(self, group=None, target=None, name=None
     thr = threading.Thread.__init__(self,group,target,name,args,kwargs,daemon)
     thr.start()
     thr.join()
-def getAvailMem() -> float:
-    """Available Memory in MB."""
-    return psutil.virtual_memory().available / 1024 ** 2
-def checkMem(threshold : int=250,freeze : bool=True,printwarn : bool = True) -> int:
-    """Checks if enough memory is available. If not over threshold, will return 2.\n
-    If its over the threshold it will try a collect command on the garbagecollector and will return a 1\n
-    If its still over the threshold, 2 stuff can happen:\n
-    If freeze is true(as default), the thread calling will freeze till its under the threshold and will return 0.\n
-    If freeze is false, MemoryError will be raised."""
-    isover = threshold >= getAvailMem()
-    if isover:
-        gc.collect()
-    else:
-        return 2
-    isover = threshold >= getAvailMem()
-    if freeze and isover:
-        if printwarn:
-            print_warn("Out of memory warning. Available memory is under the threshold of " + str(threshold) + " megabytes.")
-            print_warn("Program has frozen. Program will automatically unfreeze until available memory is over threshold.")
-        waituntil("threshold < getAvailMem()",{"getAvailMem":getAvailMem,"threshold":threshold},1)
-        if printwarn:
-            print_warn("Program automatically unfrozen.")
-        return 0
-    elif isover:
-        raise MemoryError
-    else:
-        return 1
+try:
+    import psutil
+except:
+    print_warn("Psutil import error.")
+if psutil is not None:
+    def getAvailMem() -> float:
+        """Available Memory in MB."""
+        return psutil.virtual_memory().available / 1024 ** 2
+    def checkMem(threshold : int=250,freeze : bool=True,printwarn : bool = True) -> int:
+        """Checks if enough memory is available. If not over threshold, will return 2.\n
+        If its over the threshold it will try a collect command on the garbagecollector and will return a 1\n
+        If its still over the threshold, 2 stuff can happen:\n
+        If freeze is true(as default), the thread calling will freeze till its under the threshold and will return 0.\n
+        If freeze is false, MemoryError will be raised."""
+        isover = threshold >= getAvailMem()
+        if isover:
+            gc.collect()
+        else:
+            return 2
+        isover = threshold >= getAvailMem()
+        if freeze and isover:
+            if printwarn:
+                print_warn("Out of memory warning. Available memory is under the threshold of " + str(threshold) + " megabytes.")
+                print_warn("Program has frozen. Program will automatically unfreeze until available memory is over threshold.")
+            waituntil("threshold < getAvailMem()",{"getAvailMem":getAvailMem,"threshold":threshold},1)
+            if printwarn:
+                print_warn("Program automatically unfrozen.")
+            return 0
+        elif isover:
+            raise MemoryError
+        else:
+            return 1
+else:
+    getAvailMem = passkw
+    checkMem = passkw
+    print_warn("getAvailMem and checkMem will be unavailable due to psutil import error.")
 def __servcontosock(connection : Tuple[socket.socket,Tuple[str,int]]):
     sock = Socket.__new__(Socket)
     sock._socket = connection[0]
@@ -805,9 +850,11 @@ def __dir__():
         "thread","run_with_multiprocessing","run_with_disabled_keyboardinterrupt",
         "getAvailMem","checkMem",
         "Socket","ListeningServerSocket",
-        "__dir__"
+        "__dir__","pythonapi",
+        "CString"
         ]
     l.sort()
     return l
+pythonapi = ctypes.pythonapi
 if __name__ == "__main__":
-    Shell().run(globals())
+    Shell().run(globals())  
