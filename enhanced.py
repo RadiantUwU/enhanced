@@ -465,7 +465,7 @@ class enhancedobject(object):
         """Returns reference count from the sys module.
         0th position in tuple is total references
         1st position in tuple is active references"""
-        return (sys.getrefcount(self),self.getActiveReferencesCount())
+        return (sys.getrefcount(self) - 3,self.getActiveReferencesCount())
     def getWeakReferenceCount(self) -> int:
         """Returns weak reference count from the sys module."""
         return weakref.getweakrefcount(self)
@@ -849,7 +849,7 @@ def __dir__():
         "getAvailMem","checkMem",
         #"Socket","ListeningServerSocket","servcontosock",
         "__dir__","pythonapi",
-        "CString"
+        "CString","ctypes"
         ]
     l.sort()
     return l
