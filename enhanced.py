@@ -36,6 +36,7 @@ import sys
 import socket
 import pickle
 
+
 def passkw(*args,**kwargs):
     pass
 dict_keys = type(dict().keys())
@@ -488,7 +489,7 @@ class enhancedobject(object):
     def forcedel(self) -> None:
         """This function is highly unstable and crashes python all the time. Its recommended to use the normal delete(True) instead."""
         e = ctypes.py_object(self)
-        for _ in range(self.getActiveReferencesCount()):pythonapi.Py_DecRef(e)
+        for _ in range(self.getReferenceCount()[0]):pythonapi.Py_DecRef(e)
 def printError():
     print(terminalcolors.red + traceback.format_exc() + terminalcolors.reset)
     return terminalcolors.red + traceback.format_exc() + terminalcolors.reset
@@ -614,6 +615,9 @@ def print_rainbow(string : str,thetype : int=0,end : str="\n") -> None:
     String: string to be printed
     Type(default 0): Type, for more info, do terminalcolors.typetest
     End(default \\n): End of print"""
+    print(rainbowify(string,thetype),end=end)
+def rainbowify(string : str,thetype : int) -> str:
+    """Rainbowifies string, makes it rainbow when printed."""
     newstr = copy.copy(terminalcolors.types[thetype % 4])
     i = 0
     rainbow = (terminalcolors.red,terminalcolors.yellow,terminalcolors.green,terminalcolors.cyan,terminalcolors.blue,terminalcolors.magenta)
@@ -621,7 +625,7 @@ def print_rainbow(string : str,thetype : int=0,end : str="\n") -> None:
         newstr += rainbow[i] + c
         i += 1
         i %= 6
-    print(newstr + terminalcolors.reset,end=end)
+    return newstr + terminalcolors.reset
 class PropertyFunc:
     def __init__(self,funcget,funcset):
         self.fget = funcget
@@ -741,7 +745,7 @@ def __servcontosock(connection : Tuple[socket.socket,Tuple[str,int]]):
     return sock
 class Socket(enhancedobject):
     """A network socket. You can send anything through it."""
-    def __init__(self,address : Tuple[str,int]):
+    def oninit(self,address : Tuple[str,int]):
         """Create a new socket on address"""
         self.address = address
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -801,7 +805,7 @@ class Socket(enhancedobject):
             pass
 class ListeningServerSocket(enhancedobject):
     """A listening network socket."""
-    def __init__(self, address: Tuple[str, int]):
+    def oninit(self, address: Tuple[str, int]):
         """Make a listening network socket on the address."""
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.bind(address)
@@ -841,7 +845,7 @@ def __dir__():
         "getError","printError",
         "AttributableObject","enhancedobject",
         "AlreadyInitializedWarning",
-        "terminalcolors","print_color","print_rainbow",
+        "terminalcolors","print_color","print_rainbow","rainbowify"
         "PropertyFunc",
         "Shell","isolated_exec",
         "print_info","print_warn","print_err","print_fatalerr","print_extra","print_debug",
