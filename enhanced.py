@@ -678,7 +678,7 @@ def getdirstr(obj : object,noreserved : bool=False) -> str:
 class thread(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
         if name is None:
-            name = "Thread-" + hex(self.get_id()).replace("0x","__").upper().replace("__","0x")
+            name = "Thread-" + hex(id(self)).replace("0x","__").upper().replace("__","0x")
         threading.Thread.__init__(self,group=group,target=target,name=name,args=args,kwargs=kwargs,daemon=daemon)
         self.name = name
     def get_id(self):
@@ -861,4 +861,4 @@ def __dir__():
     return l
 pythonapi = ctypes.pythonapi
 if __name__ == "__main__":
-    Shell().run(globals())  
+    Shell().run(globals())
