@@ -411,7 +411,7 @@ class enhancedobject(object):
     def ondelete(self,deletedalready=False) -> None:
         pass
     def ongcdelete(self) -> None:
-        print_debug("EnhancedObject Object has been deleted by GC.")
+        pass
     def delete(self,force=False) -> None:
         self.ondelete()
         ref = gc.get_referrers(self)
@@ -490,6 +490,48 @@ class enhancedobject(object):
         """This function is highly unstable and crashes python all the time. Its recommended to use the normal delete(True) instead."""
         e = ctypes.py_object(self)
         for _ in range(self.getReferenceCount()[0]):pythonapi.Py_DecRef(e)
+class unfrozentuple(enhancedobject):
+    def __init__(self,*args) -> None:
+        if len(args) == 1:
+            self.thetuple : Tuple[Any] = tuple(*args)
+        else:
+            self.thetuple : Tuple[Any] = tuple(args)
+    def __repr__(self) -> str:
+        return "unfrozentuple" + str(self.thetuple)
+    def __len__(self) -> int:
+        return len(self.thetuple)
+    def __getitem__(self,key : int) -> Any:
+        return self.thetuple[key]
+    def __setitem__(self,key : int,value : Any) -> None:
+        f = list(self.thetuple)
+        f[key] = value
+        self.thetuple = tuple(f)
+    def toTuple(self) -> tuple:
+        return self.thetuple
+    def __iter__(self) -> tuple:
+        return iter(self.thetuple)
+    def __delitem__(self,key : int) -> None:
+        f = list(self.thetuple)
+        del f[key]
+        self.thetuple = tuple(f)
+    def __getslice__(self,i : int,j : int) -> Tuple[Any]:
+        return self.thetuple[i:j]
+    def __setslice__(self,i : int,j : int,val : Tuple[Any]) -> None:
+        f = list(self.thetuple)
+        f[i:j] = list(tuple(val))
+        self.thetuple = tuple(f)
+    def __delslice__(self,i : int, j : int) -> None:
+        f = list(self.thetuple)
+        del f[i:j]
+        self.thetuple = tuple(f)
+    def __contains__(self,obj) -> bool:
+        return obj in self.thetuple
+    def __hash__(self) -> int:
+        return hash(self.thetuple)
+    def count(self,val : Any) -> int:
+        return self.thetuple.count(val)
+    def index(self,val : Any) -> int:
+        return self.thetuple.index(val)
 def printError():
     print(terminalcolors.red + traceback.format_exc() + terminalcolors.reset)
     return terminalcolors.red + traceback.format_exc() + terminalcolors.reset
@@ -847,9 +889,10 @@ def __dir__():
         "getdir","getdirstr","objtodict",
         "thread","run_with_multiprocessing","run_with_disabled_keyboardinterrupt",
         "getAvailMem","checkMem",
-        #"Socket","ListeningServerSocket","servcontosock",
+        "Socket","ListeningServerSocket","servcontosock",
         "__dir__","pythonapi",
-        "CString","ctypes"
+        "CString","ctypes",
+        "unfrozentuple"
         ]
     l.sort()
     return l
