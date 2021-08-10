@@ -18,6 +18,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 psutil = None
 import copy
 import json
@@ -39,10 +40,16 @@ import pickle
 
 def passkw(*args,**kwargs):
     pass
+def alwaysreturn(var : Any):
+    thevar = var
+    def returner(*args,**kwargs):
+        return thevar
+    return returner
 dict_keys = type(dict().keys())
 dict_values = type(dict().values())
 function = FunctionType
 module = ModuleType
+IpAddress = Tuple[str,int]
 class CString:
     """Array of characters"""
     def __new__(self,string : str,length : int=None):
@@ -295,6 +302,52 @@ def index_dict(self,value) -> Any:
 @forbiddenfruit.curses(dict,'hash')
 def hash_dict(self) -> int:
     return hash(json.dumps(copy.deepcopy(self), sort_keys=True))
+def forcedeallocate(obj : object) -> None:
+    """Forces deallocation on object."""
+    e = ctypes.py_object(obj)
+    for _ in range(sys.getrefcount(obj) - 3):pythonapi.Py_DecRef(e)
+def partial_delete(self,log=False) -> int:
+    ref = gc.get_referrers(self)
+    immuttables = (tuple,str,type(dict().keys()),type(dict().values()),set,frozenset)
+    for i in ref:
+        if not inspect.isframe(i):
+            if type(i) in immuttables:
+                ty = type(i)
+                f = list(i)
+                f.remove(self)
+                f = ty(f)
+                for j in gc.get_referrers(i):
+                    try:
+                        partial_update_obj(j,i,f)
+                    except Exception:
+                        if log:
+                            printError()
+            else:
+                if type(i) == dict:
+                    if '__holddestroyedobjects' in i.keys():
+                        if i['__holddestroyedobjects']:
+                            pass
+                        else:
+                            try:
+                                del i[i.index(self)]
+                            except Exception:
+                                if log:
+                                   printError()
+                    else:
+                        try:
+                            del i[i.index(self)]
+                        except Exception:
+                            if log:
+                                printError()
+                elif type(i) == list:
+                    try:
+                        i.remove(self)
+                    except:
+                       if log:
+                            printError()
+        else:
+            pass
+    return sys.getrefcount(self) - 2
 def update_obj(obj,old,new):
     immuttables = (tuple,str,type(dict().keys()),type(dict().values()),set,frozenset)
     if type(obj) in immuttables:
@@ -307,11 +360,28 @@ def update_obj(obj,old,new):
     else:
         if type(obj) == dict or type(obj) == list:
             obj[obj.index(old)] = new
+def partial_update_obj(obj,old,new,log=False):
+    immuttables = (tuple,str,type(dict().keys()),type(dict().values()),set,frozenset)
+    if type(obj) in immuttables:
+        try:
+            ty = type(obj)
+            f = list(obj)
+            f[f.index(old)] = new
+            f = ty(f)
+            for j in gc.get_referrers(obj):
+                partial_update_obj(j,obj,f)
+        except Exception:
+           if log:
+                printError()
+    else:
+        if type(obj) == dict or type(obj) == list:
+            try:
+                obj[obj.index(old)] = new
+            except Exception:
+                if log:
+                    printError()
 def getError():
     return traceback.format_exc()
-class AttributableObject:
-    def __init__(self) -> None:
-        pass
 class enhancedobject:
     pass
 class AlreadyInitializedWarning(RuntimeWarning):
@@ -412,7 +482,7 @@ class enhancedobject(object):
         pass
     def ongcdelete(self) -> None:
         pass
-    def delete(self,force=False) -> None:
+    def delete(self,force=False) -> int:
         self.ondelete()
         ref = gc.get_referrers(self)
         immuttables = (tuple,str,type(dict().keys()),type(dict().values()),set,frozenset)
@@ -442,6 +512,8 @@ class enhancedobject(object):
         self.deleted = True
         if force:
             self.forcedel()
+            return -1
+        return sys.getrefcount(self) - 2
     def hash(self) -> int:
         """Returns object's hash."""
         return hash(self)
@@ -490,6 +562,8 @@ class enhancedobject(object):
         """This function is highly unstable and crashes python all the time. Its recommended to use the normal delete(True) instead."""
         e = ctypes.py_object(self)
         for _ in range(self.getReferenceCount()[0]):pythonapi.Py_DecRef(e)
+class AttributableObject(enhancedobject):
+    pass
 class unfrozentuple(enhancedobject):
     def __init__(self,*args) -> None:
         if len(args) == 1:
@@ -565,16 +639,14 @@ class Shell:
                 return e
         else:
             try:
-                c = c.replace("locals()",str(self.locals))
                 try:
                     if self.__isolated:
-                        c = c.replace("globals()",str(self.isolglobals))
-                        print(eval(c,self.isolglobals,self.locals))
+                        print(eval(c,{**self.isolglobals, "globals":alwaysreturn(self.isolglobals)},self.locals))
                     else:
                         print(eval(c,self.globals,self.locals))
                 except SyntaxError:
                     if self.__isolated:
-                        exec(c,self.isolglobals,self.locals)
+                        exec(c,{**self.isolglobals, "globals":alwaysreturn(self.isolglobals)},self.locals)
                     else:
                         exec(c,self.globals,self.locals)
                 return None
@@ -668,6 +740,9 @@ def rainbowify(string : str,thetype : int=0) -> str:
         i += 1
         i %= 6
     return newstr + terminalcolors.reset
+def colorify(string : str,color : int=0,thetype : int=0):
+    """Makes a string colorful!"""
+    return terminalcolors.reset + terminalcolors.types[thetype % terminalcolors.types.__len__()] + terminalcolors.colors[color % terminalcolors.colors.__len__()] + string + terminalcolors.reset
 class PropertyFunc:
     def __init__(self,funcget,funcset):
         self.fget = funcget
@@ -715,8 +790,23 @@ def getdirstr(obj : object,noreserved : bool=False) -> str:
     for i in thedir:
         if i == "__dict__":continue
         if noreserved and i.startswith("__") and i.endswith("__"):continue
-        e += "(\"" + str(i) + "\", " + str(eval("obj." + str(i),{},{'obj' : obj})) + ")\n"
+        e += str((i,eval("obj." + i,{},{"obj":obj}))) + ")\n"
     return e[:-1]
+def getdirstrwodf(obj : object,noreserved : bool=False) -> str:
+    thedir = list(object.__dir__(obj))
+    try:
+        thedir.remove("__abstractmethods__")
+    except:
+        pass
+    e = ""
+    for i in thedir:
+        if i == "__dict__":continue
+        if noreserved and i.startswith("__") and i.endswith("__"):continue
+        e += str((i,eval("obj." + i,{},{"obj":obj}))) + ")\n"
+    return e[:-1]
+def getobjfromid(theid : int) -> object:
+    """Recommended to use instead of this a weak-reference."""
+    return ctypes.cast(theid,ctypes.py_object).value
 class thread(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
         if name is None:
@@ -740,8 +830,8 @@ class run_with_multiprocessing(multiprocessing.Process):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs={}, *, daemon=None):
         multiprocessing.Process.__init__(self,group,target,name,args,kwargs,daemon)
         self.start()
-def run_with_disabled_keyboardinterrupt(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
-    thr = threading.Thread.__init__(self,group,target,name,args,kwargs,daemon)
+def run_with_thread(group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
+    thr = threading.Thread(group,target,name,args,kwargs,daemon)
     thr.start()
     thr.join()
 try:
@@ -780,12 +870,12 @@ else:
     getAvailMem = passkw
     checkMem = passkw
     print_warn("getAvailMem and checkMem will be unavailable due to psutil import error.")
-def servcontosock(connection : Tuple[socket.socket,Tuple[str,int]]):
+def servcontosock(connection : Tuple[socket.socket,IpAddress]):
     sock = Socket(connection[1],connection[0])
     return sock
 class Socket(enhancedobject):
     """A network socket. You can send anything through it."""
-    def oninit(self,address : Tuple[str,int],thesocket : socket.SocketType=None,**kwargs):
+    def oninit(self,address : IpAddress,thesocket : socket.SocketType=None,**kwargs):
         """Create a new socket on address"""
         self.address = address
         if thesocket is None:
@@ -809,7 +899,7 @@ class Socket(enhancedobject):
             except ConnectionResetError:
                 self.issocketclosed = True
                 raise
-    def read(self,buffer_size : int) -> Any:
+    def recv(self,buffer_size : int) -> Any:
         """Reads data.\n
         It gets returned as a bytes object if decode is False"""
         if not self.issocketclosed:
@@ -819,18 +909,30 @@ class Socket(enhancedobject):
             except ConnectionResetError:
                 self.issocketclosed = True
                 raise
-            except pickle.PickleError:
+            except pickle.PickleError as e:
                 print_err("Connection error. Socket id {sockid} will be closed.".format(sockid=id(self)))
-                self.send(self.internalinstr("disconnect","PickleError"),True)
+                self.send(self.internalinstr("disconnect","pickle.UnpicklingError:" + str(str(" ").join(e.args))),True)
                 self.close()
                 self.issocketclosed = True
     @staticmethod
-    def internalinstr(inst,arg1=None,arg2=None):
+    def internalinstr(inst,*args):
+        args : list= list(args)
+        for _ in range(5 - len(args)):args.append(None)
         instructions = {
             "disconnect":{
                 "type":"disconnect",
-                "message":str(arg1)
-            }
+                "message":str((args[0] if args[0] is not None else ""))},
+            "connectfail":{
+                "type":"connectfail",
+                "message":str((args[0] if args[0] is not None else ""))},
+            "connectok":{
+                "type":"connectok",
+                "message":args[0]},
+            "isonlinecheck":{
+                "type":"isonlinecheck"},
+            "ch_buf_size":{
+                "type":"ch_buf_size",
+                "message":int((args[0] if args[0] is not None else 1024))},
         }
         return instructions[inst]
     def close(self):
@@ -838,7 +940,7 @@ class Socket(enhancedobject):
             self._socket.close()
             self.issocketclosed = True
         except ConnectionResetError:
-            pass
+            self.issocketclosed = True
 class ListeningServerSocket(enhancedobject):
     """A listening network socket."""
     def oninit(self, address: Tuple[str, int]):
@@ -866,10 +968,7 @@ class ListeningServerSocket(enhancedobject):
     def checkforclosedcons(self):
         for index,i in enumerate(self.connections):
             if i.issocketclosed:
-                del self.connections[index]
-        for index,i in enumerate(self.newconnections):
-            if i.issocketclosed:
-                del self.newconnections[index]
+                self.connections[index].delete()
 def __dir__():
     l = [
         "passkw",
@@ -891,11 +990,77 @@ def __dir__():
         "getAvailMem","checkMem",
         "Socket","ListeningServerSocket","servcontosock",
         "__dir__","pythonapi",
-        "CString","ctypes",
-        "unfrozentuple"
+        "CString","ctypes","exec_CFUNC","exec_nrCFUNC","carg",
+        "unfrozentuple",
+        "hash_dict","index_dict",
+        "getdirstrwodf","forcedeallocate",
+        "partial_delete","partial_update_obj",
+        "alwaysreturn","getobjfromid"
         ]
     l.sort()
     return l
+class carg:
+    def __new__(cls,arg,normaltype=None):
+        if normaltype is not None:
+            return normaltype(arg)
+        else:
+            return carg.__find(arg)
+    @staticmethod
+    def __bytes(arg : bytes):
+        if len(arg) == 1:
+            return ctypes.c_char(arg)
+        else:
+            return ctypes.c_char_p(arg)
+    @staticmethod
+    def __str(arg : str):
+        if len(arg) == 1:
+            return ctypes.c_wchar(arg)
+        else:
+            return ctypes.c_wchar_p(arg)
+    @staticmethod
+    def __tuple(arg : tuple):
+        arg = copy.copy(tuple(arg))
+        if len(arg) == 0:
+            raise ctypes.ArgumentError("If list/tuple is empty, you must follow it up with the type.")
+        x = carg.__find(arg[0]).__class__
+        for i in range(1,len(arg)):
+            y = carg.__find(arg[i]).__class__
+            if x != y:
+                x = carg.__modtype(x,y)
+        return (carg((arg[0],None)).__class__ * len(arg))(*arg)
+    @staticmethod
+    def __find(arg : Any):
+        switch = {
+            bool:ctypes.c_bool,
+            bytes:carg.__bytes,
+            str:carg.__str,
+            int:ctypes.c_int,
+            float:ctypes.c_float,
+            type(None):ctypes.c_void_p,
+            tuple:carg.__tuple,
+            list:carg.__tuple
+        }
+        return switch.get(type(arg),ctypes.py_object)(arg)
+    @staticmethod
+    def __modtype(old : type,new : type):
+        if (old,new) in [(ctypes.c_wchar,ctypes.c_wchar_p),tuple([ctypes.c_wchar,ctypes.c_wchar_p].reverse()),(ctypes.c_char,ctypes.c_char_p),tuple([ctypes.c_char,ctypes.c_char_p].reverse())]:
+            if (old,new) == (ctypes.c_wchar,ctypes.c_wchar_p):
+                return new
+            elif (old,new) == (ctypes.c_char,ctypes.c_char_p):
+                return new
+            else:
+                return old
+        else:
+            raise ctypes.ArgumentError("more types of arguments, cannot make into array.")
+def exec_CFUNC(func : ctypes.CFUNCTYPE,res_type : Any,*args : Any):
+    """Executes c function with arguments"""
+    func.restype = res_type
+    newargs = (carg(i) for i in args)
+    return func(*newargs)
+def exec_nrCFUNC(func : ctypes.CFUNCTYPE,*args : Any):
+    """Executes c function with arguments"""
+    newargs = (carg(i) for i in args)
+    return func(*newargs)
 pythonapi = ctypes.pythonapi
 if __name__ == "__main__":
     Shell().run(globals())
