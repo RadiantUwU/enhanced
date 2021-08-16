@@ -65,6 +65,47 @@ module = ModuleType
 IpAddress = Tuple[str, int]
 
 
+class _Getch:
+    """Gets a single character from standard input.  Does not echo to the
+screen."""
+
+    def __init__(self):
+        try:
+            self.impl = _GetchWindows()
+        except ImportError:
+            self.impl = _GetchUnix()
+
+    def __call__(self):
+        return self.impl()
+
+
+class _GetchUnix:
+    def __init__(self):
+        pass
+
+    def __call__(self):
+        import sys, tty, termios
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
+class _GetchWindows:
+    def __init__(self):
+        pass
+    def __call__(self):
+        import msvcrt
+        return msvcrt.getch()
+
+
+getch = _Getch()
+
+
 class CString:
     """Array of characters"""
 
@@ -1450,13 +1491,17 @@ class Clock:
 def print_a_rainbow(splits: int = 1):
     string = ""
     i = 0.0
-    while i != 360:
-        x = tuple(int(i) for i in hsv_to_rgb((i, 1.0, 1.0)))
-        string += colorify_high(" ", (0, 0, 0), 0, x)
-        i += (90.0 / splits)
-        if i > 360:
-            break
+    try:
+        while i != 360:
+            x = tuple(int(i) for i in hsv_to_rgb((i, 1.0, 1.0)))
+            string += colorify_high(" ", (0, 0, 0), 0, x)
+            i += (90.0 / splits)
+            if i > 360:
+                break
+    except KeyboardInterrupt:
+        pass
     print(string)
+    return string
 
 
 def hsv_to_rgb(hsv: Tuple[Union[int, float], Union[int, float], Union[int, float]]) -> Tuple[int, int, int]:
@@ -1482,8 +1527,9 @@ if os.name == 'nt':
                     "SUCCESS")
     else:
         print_err("An error has occurred while running 'color 07'")
+        print_warn("Could not initialize high colors via 'color 07'")
 else:
-    print_warn("Could not initialize high colors via 'color 07'!")
+    print_warn("Could not initialize high colors via 'color 07'")
 curse_mod(dict, "__hash__", hash_dict)
 replace_all(hash, hash_obj)
 replace_all(repr, repr_obj)
