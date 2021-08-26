@@ -19,7 +19,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-psutil = None
 # noinspection PyUnresolvedReferences
 import builtins
 import copy
@@ -27,7 +26,7 @@ import json
 import traceback
 # noinspection PyUnresolvedReferences
 from types import FunctionType, MethodType, ModuleType
-from typing import Any, List, Tuple, Iterator, Union
+from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized
 import forbiddenfruit
 import gc
 import time
@@ -44,16 +43,16 @@ from time import sleep as wait_seconds
 
 
 # noinspection PyUnusedLocal
-def passkw(*args, **kwargs):
+def pass_func(*args, **kwargs):
     pass
 
 
-def alwaysreturn(var: Any):
-    thevar = var
+def always_return(var: Any):
+    the_var = var
 
     # noinspection PyUnusedLocal
     def returner(*args, **kwargs):
-        return thevar
+        return the_var
 
     return returner
 
@@ -63,8 +62,10 @@ dict_values = type(dict().values())
 function = FunctionType
 module = ModuleType
 IpAddress = Tuple[str, int]
+dict_items = type(dict().items())
 
 
+# noinspection SpellCheckingInspection
 class _Getch:
     """Gets a single character from standard input.  Does not echo to the
 screen."""
@@ -79,12 +80,15 @@ screen."""
         return self.impl()
 
 
+# noinspection SpellCheckingInspection
 class _GetchUnix:
     def __init__(self):
         pass
 
     def __call__(self):
-        import sys, tty, termios
+        import sys
+        import tty
+        import termios
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
@@ -95,14 +99,17 @@ class _GetchUnix:
         return ch
 
 
+# noinspection SpellCheckingInspection
 class _GetchWindows:
     def __init__(self):
         pass
+
     def __call__(self):
         import msvcrt
         return msvcrt.getch()
 
 
+# noinspection SpellCheckingInspection
 getch = _Getch()
 
 
@@ -142,7 +149,7 @@ class CacherMap:
 class Cacher:
     def __init__(self, **kwargs):
         self.cached = CacherMap()
-        self.funct = passkw
+        self.function = pass_func
         for i in kwargs:
             setattr(self, i, kwargs[i])
 
@@ -153,8 +160,8 @@ class Cacher:
             except MemoryError:
                 self.flush()
                 checkMem(500)
-        if not num in self.cached.keys():
-            self.cached[num] = self.funct(num)
+        if num not in self.cached.keys():
+            self.cached[num] = self.function(num)
         return self.cached[num]
 
     def __call__(self, num, memcap=True):
@@ -164,9 +171,10 @@ class Cacher:
         self.cached.clear()
 
 
+# noinspection SpellCheckingInspection
 class MathMisc:
     @staticmethod
-    def isprime(n) -> bool:
+    def isPrime(n) -> bool:
         f = True
         for i in range(2, n - 1):
             if (n % i) == 0:
@@ -175,27 +183,28 @@ class MathMisc:
         return f
 
     @staticmethod
-    def primen(a) -> int:
+    def prime(a) -> int:
         n = 2
         b = a
         while b != 0:
-            if MathMisc.isprime(n):
+            if MathMisc.isPrime(n):
                 b -= 1
             n += 1
         return n - 1
 
+    # noinspection SpellCheckingInspection
     @staticmethod
-    def spliexpb(a) -> list:
+    def split_exp_bases(a) -> list:
         thelist = []
         b = a
         while b != 1:
             n = 1
             while True:
-                if (b % primenum[n]) == 0:
+                if (b % prime_num[n]) == 0:
                     break
                 n += 1
-            b = b // primenum[n]
-            thelist.append(primenum[n])
+            b = b // prime_num[n]
+            thelist.append(prime_num[n])
         return thelist
 
     @staticmethod
@@ -259,7 +268,7 @@ class MathMisc:
         return x
 
 
-primenum = Cacher(funct=MathMisc.primen)
+prime_num = Cacher(funct=MathMisc.prime)
 
 
 # noinspection PyUnresolvedReferences
@@ -267,7 +276,7 @@ class Fraction:
     pass
 
 
-# noinspection PyRedeclaration
+# noinspection PyRedeclaration,SpellCheckingInspection
 class Fraction:
     def __init__(self, n, div) -> None:
         self.n = n
@@ -412,6 +421,7 @@ class Fraction:
         return 'Fraction(' + str(self.n) + ',' + str(self.div) + ')'
 
 
+# noinspection SpellCheckingInspection
 def waituntil(cond: str, local_vars=None, interval: int = 0.01):
     if local_vars is None:
         local_vars = {}
@@ -424,6 +434,7 @@ def index_dict(self, value) -> Any:
     if value in self.values():
         return list(self.keys())[list(self.values()).index(value)]
     else:
+
         raise IndexError("Key with value " + str(value) + " does not exist.")
 
 
@@ -432,18 +443,20 @@ def hash_dict(self) -> int:
     return hash(json.dumps(copy.deepcopy(self), sort_keys=True))
 
 
-def forcedeallocate(obj: object) -> None:
-    """Forces deallocation on object."""
+def force_deallocate(obj: object) -> None:
+    """Forces deletion on object."""
     e = ctypes.py_object(obj)
-    for _ in range(sys.getrefcount(obj) - 3): pythonapi.Py_DecRef(e)
+    for _ in range(sys.getrefcount(obj) - 3):
+        pythonapi.Py_DecRef(e)
 
 
+# noinspection PyBroadException
 def partial_delete(self, log=False) -> int:
     ref = gc.get_referrers(self)
-    immuttables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
+    immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
     for i in ref:
         if not inspect.isframe(i):
-            if type(i) in immuttables:
+            if type(i) in immutables:
                 ty = type(i)
                 f = list(i)
                 f.remove(self)
@@ -456,8 +469,8 @@ def partial_delete(self, log=False) -> int:
                             printError()
             else:
                 if type(i) == dict:
-                    if '__holddestroyedobjects' in i.keys():
-                        if i['__holddestroyedobjects']:
+                    if '__holdDestroyedObjects__' in i.keys():
+                        if i['__holdDestroyedObjects__']:
                             pass
                         else:
                             try:
@@ -474,7 +487,7 @@ def partial_delete(self, log=False) -> int:
                 elif type(i) == list:
                     try:
                         i.remove(self)
-                    except:
+                    except Exception:
                         if log:
                             printError()
         else:
@@ -483,8 +496,8 @@ def partial_delete(self, log=False) -> int:
 
 
 def update_obj(obj, old, new):
-    immuttables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
-    if type(obj) in immuttables:
+    immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
+    if type(obj) in immutables:
         ty = type(obj)
         f = list(obj)
         f[f.index(old)] = new
@@ -496,9 +509,10 @@ def update_obj(obj, old, new):
             obj[obj.index(old)] = new
 
 
+# noinspection PyBroadException
 def partial_update_obj(obj, old, new, log=False):
-    immuttables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
-    if type(obj) in immuttables:
+    immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
+    if type(obj) in immutables:
         try:
             ty = type(obj)
             f = list(obj)
@@ -522,14 +536,16 @@ def getError():
     return traceback.format_exc()
 
 
+# noinspection PyPep8Naming,SpellCheckingInspection
 class enhancedobject:
     pass
 
 
 class AlreadyInitializedWarning(RuntimeWarning):
-    pass
+    ...
 
 
+# noinspection PyPep8Naming,SpellCheckingInspection
 class terminalcolors:
     magenta = '\033[95m'
     blue = '\033[94m'
@@ -558,20 +574,20 @@ class terminalcolors:
         return f"\x1b[{('38' if isfg else '48')};2;{str(r)};{str(g)};{str(b)}m"
 
 
-# noinspection PyRedeclaration,PyUnresolvedReferences,PyAttributeOutsideInit
+# noinspection PyRedeclaration,PyUnresolvedReferences,PyAttributeOutsideInit,PyPep8Naming,SpellCheckingInspection
 class enhancedobject(object):
     def __new__(cls, *args, **kwargs) -> enhancedobject:
         self = object.__new__(cls)
         self.__initialized = False
-        self.__preinitialized = False
+        self.__preInitialized = False
         self.__deleted = False
         self.deleted = False
-        cls.onpreinit(self, *args, **kwargs)
-        self.__preinitialized = True
+        cls.onPreInit(self, *args, **kwargs)
+        self.__preInitialized = True
         return self
 
     def __init__(self, *args, **kwargs) -> None:
-        self.oninit(*args, **kwargs)
+        self.onInit(*args, **kwargs)
         self.__initialized = True
 
     def __hash__(self) -> int:
@@ -598,11 +614,11 @@ class enhancedobject(object):
         return self.__repr__()
 
     def shallowCopy(self) -> enhancedobject:
-        """Shallowcopy the object"""
+        """Shallow copy the object"""
         return copy.copy(self)
 
     def deepCopy(self) -> enhancedobject:
-        """Deepcopy the object"""
+        """Deep copy the object"""
         return copy.deepcopy(self)
 
     def equals(self, other: object) -> bool:
@@ -625,14 +641,14 @@ class enhancedobject(object):
         return not self.__eq__(other)
 
     @classmethod
-    def headlessnew(cls, *args, **kwargs) -> enhancedobject:
+    def headlessNew(cls, *args, **kwargs) -> enhancedobject:
         """Returns an uninitialized instance of this class."""
         return cls.__new__(cls, *args, **kwargs)
 
-    def onpreinit(self, *args, **kwargs) -> None:
+    def onPreInit(self, *args, **kwargs) -> None:
         pass
 
-    def oninit(self, *args, **kwargs) -> None:
+    def onInit(self, *args, **kwargs) -> None:
         pass
 
     @classmethod
@@ -650,7 +666,7 @@ class enhancedobject(object):
         else:
             raise AlreadyInitializedWarning
 
-    def ondelete(self, deletedalready=False) -> None:
+    def ondelete(self, deletedAlready=False) -> None:
         pass
 
     def ongcdelete(self) -> None:
@@ -660,10 +676,10 @@ class enhancedobject(object):
         if not self.__deleted:
             self.ondelete()
         ref = gc.get_referrers(self)
-        immuttables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
+        immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
         for i in ref:
             if not inspect.isframe(i):
-                if type(i) in immuttables:
+                if type(i) in immutables:
                     ty = type(i)
                     f = list(i)
                     f.remove(self)
@@ -672,8 +688,8 @@ class enhancedobject(object):
                         update_obj(j, i, f)
                 else:
                     if type(i) == dict:
-                        if '__holddestroyedobjects' in i.keys():
-                            if i['__holddestroyedobjects']:
+                        if '__holdDestroyedObjects__' in i.keys():
+                            if i['__holdDestroyedObjects__']:
                                 pass
                             else:
                                 del i[i.index(self)]
@@ -744,9 +760,11 @@ class enhancedobject(object):
     def forcedel(self) -> None:
         """This function is highly unstable and crashes python all the time. Its recommended to use the normal delete(True) instead."""
         e = ctypes.py_object(self)
-        for _ in range(self.getReferenceCount()[0]): pythonapi.Py_DecRef(e)
+        for _ in range(self.getReferenceCount()[0]):
+            pythonapi.Py_DecRef(e)
 
 
+# noinspection SpellCheckingInspection
 class AttributableObject(enhancedobject):
     def __init__(self, thedict=None):
         """Makes a new attributable object from the dictionary"""
@@ -758,16 +776,17 @@ class AttributableObject(enhancedobject):
                 setattr(self, i, thedict[i])
 
 
+# noinspection PyPep8Naming,SpellCheckingInspection
 class unfrozentuple(enhancedobject):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         if len(args) == 1:
-            self.thetuple: Tuple[Any] = args[0]
+            self.thetuple: Tuple[Any] = tuple(copy.copy(args[0]))
         else:
             self.thetuple: Tuple[Any] = tuple(args)
 
     def __repr__(self) -> str:
-        return "unfrozentuple" + str(self.thetuple)
+        return "unfrozentuple" + repr(self.thetuple)
 
     def __len__(self) -> int:
         return len(self.thetuple)
@@ -825,6 +844,7 @@ def printError():
     return terminalcolors.red + traceback.format_exc() + terminalcolors.reset
 
 
+# noinspection SpellCheckingInspection
 class Shell:
     def __init__(self) -> None:
         self.running = False
@@ -861,12 +881,12 @@ class Shell:
             try:
                 try:
                     if self.__isolated:
-                        print(eval(c, {**self.isolglobals, "globals": alwaysreturn(self.isolglobals)}, self.locals))
+                        print(eval(c, {**self.isolglobals, "globals": always_return(self.isolglobals)}, self.locals))
                     else:
                         print(eval(c, self.globals, self.locals))
                 except SyntaxError:
                     if self.__isolated:
-                        exec(c, {**self.isolglobals, "globals": alwaysreturn(self.isolglobals)}, self.locals)
+                        exec(c, {**self.isolglobals, "globals": always_return(self.isolglobals)}, self.locals)
                     else:
                         exec(c, self.globals, self.locals)
                 return None
@@ -942,6 +962,7 @@ def replace_all(old: object, new: object):
         update_obj(i, old, new)
 
 
+# noinspection SpellCheckingInspection
 def isolated_exec(code: str, global_vars=None, local_vars=None):
     if local_vars is None:
         local_vars = {}
@@ -955,76 +976,78 @@ def isolated_exec(code: str, global_vars=None, local_vars=None):
     return shl.runc(code)
 
 
-def print_color(string: str, color: int = 0, thetype: int = 0, end: str = "\n") -> None:
+# noinspection SpellCheckingInspection
+def print_color(string: str, color: int = 0, the_type: int = 0, end: str = "\n") -> None:
     """Prints colorful!
     String: string to be printed
     Color(default 0): Color, for more info, do terminalcolors.colortest
     Type(default 0): Type, for more info, do terminalcolors.typetest
     End(default \\n): End of print"""
-    print(terminalcolors.reset + terminalcolors.types[thetype % terminalcolors.types.__len__()] + terminalcolors.colors[
+    print(terminalcolors.reset + terminalcolors.types[the_type % terminalcolors.types.__len__()] + terminalcolors.colors[
         color % terminalcolors.colors.__len__()] + string + terminalcolors.reset, end=end)
 
 
-def print_rainbow(string: str, thetype: int = 0, end: str = "\n") -> None:
+# noinspection SpellCheckingInspection
+def print_rainbow(string: str, the_type: int = 0, end: str = "\n") -> None:
     """Prints text in rainbow!
     String: string to be printed
     Type(default 0): Type, for more info, do terminalcolors.typetest
     End(default \\n): End of print"""
-    print(rainbowify(string, thetype), end=end)
+    print(rainbowify(string, the_type), end=end)
 
 
-def colorify_high(string: str, fgcolor: Tuple[int, int, int], thetype: int = 0, bgcolor: Tuple[int, int, int] = None):
-    assert len(fgcolor) == 3
-    if bgcolor is None:
-        return terminalcolors.types[thetype % 4] + terminalcolors.rgbcolor(*fgcolor) + string + terminalcolors.reset
+def colorify_high(string: str, fg_color: Tuple[int, int, int], the_type: int = 0, bg_color: Tuple[int, int, int] = None):
+    assert len(fg_color) == 3
+    if bg_color is None:
+        return terminalcolors.types[the_type % 4] + terminalcolors.rgbcolor(*fg_color) + string + terminalcolors.reset
     else:
-        assert len(bgcolor) == 3
-        return terminalcolors.types[thetype % 4] + terminalcolors.rgbcolor(*fgcolor) + terminalcolors.rgbcolor(*bgcolor,
-                                                                                                               False) + string + terminalcolors.reset
+        assert len(bg_color) == 3
+        return terminalcolors.types[the_type % 4] + terminalcolors.rgbcolor(*fg_color) + terminalcolors.rgbcolor(*bg_color,
+                                                                                                                 False) + string + terminalcolors.reset
 
 
-def rainbowify(string: str, thetype: int = 0) -> str:
-    """Rainbowifies string, makes it rainbow when printed."""
-    newstr = copy.copy(terminalcolors.types[thetype % 4])
+def rainbowify(string: str, the_type: int = 0) -> str:
+    """Makes a string rainbow, makes it rainbow when printed."""
+    new_str = copy.copy(terminalcolors.types[the_type % 4])
     i = 0
     rainbow = (
         terminalcolors.red, terminalcolors.yellow, terminalcolors.green, terminalcolors.cyan, terminalcolors.blue,
         terminalcolors.magenta)
     for c in string:
-        newstr += rainbow[i] + c
+        new_str += rainbow[i] + c
         i += 1
         i %= 6
-    return newstr + terminalcolors.reset
+    return new_str + terminalcolors.reset
 
 
-def colorify(string: str, color: int = 0, thetype: int = 0):
+def colorify(string: str, color: int = 0, the_type: int = 0):
     """Makes a string colorful!"""
-    return terminalcolors.reset + terminalcolors.types[thetype % terminalcolors.types.__len__()] + \
+    return terminalcolors.reset + terminalcolors.types[the_type % terminalcolors.types.__len__()] + \
            terminalcolors.colors[color % terminalcolors.colors.__len__()] + string + terminalcolors.reset
 
 
 def print_info(string: str, end: str = "\n"):
-    print_color("[" + gettime() + " INFO]: " + string, 1, 0, end)
+    print_color("[" + get_time() + " INFO]: " + string, 1, 0, end)
 
 
 def print_warn(string: str, end: str = "\n"):
-    print_color("[" + gettime() + " WARN]: " + string, 6, 0, end)
+    print_color("[" + get_time() + " WARN]: " + string, 6, 0, end)
 
 
 def print_err(string: str, end: str = "\n"):
-    print_color("[" + gettime() + " ERROR]: " + string, 4, 0, end)
+    print_color("[" + get_time() + " ERROR]: " + string, 4, 0, end)
 
 
 def print_fatalerr(string: str, end: str = "\n"):
-    print_color("[" + gettime() + " FATAL ERROR]: " + string, 4, 1, end)
+    print_color("[" + get_time() + " FATAL ERROR]: " + string, 4, 1, end)
 
 
 def print_debug(string: str, end: str = "\n"):
-    print_color("[" + gettime() + " DEBUG]: " + string, 3, 0, end)
+    print_color("[" + get_time() + " DEBUG]: " + string, 3, 0, end)
 
 
-def print_extra(string: str, color: int = 1, typeofmessage: str = "INFO", thetype: int = 0, end: str = "\n"):
-    print_color("[" + gettime() + " " + typeofmessage + "]: " + string, color % 8, thetype, end)
+def print_extra(string: str, color: int = 1, type_of_message: str = "INFO", the_type: int = 0, end: str = "\n"):
+    print_color("[" + get_time() + " " + type_of_message + "]: " + string, color % 8, the_type, end)
 
 
 def make2digit(num: str):
@@ -1033,64 +1056,70 @@ def make2digit(num: str):
     return num
 
 
-def gettime():
-    thetime = time.localtime(time.time())
+def get_time():
+    the_time = time.localtime(time.time())
     months = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Dec")
-    return make2digit(str(thetime.tm_mday)) + " " + months[thetime.tm_mon - 1] + " " + make2digit(
-        str(thetime.tm_year)) + " " + make2digit(str(thetime.tm_hour)) + ":" + make2digit(
-        str(thetime.tm_min)) + ":" + make2digit(str(thetime.tm_sec))
+    return make2digit(str(the_time.tm_mday)) + " " + months[the_time.tm_mon - 1] + " " + make2digit(
+        str(the_time.tm_year)) + " " + make2digit(str(the_time.tm_hour)) + ":" + make2digit(
+        str(the_time.tm_min)) + ":" + make2digit(str(the_time.tm_sec))
 
 
-def getdir(obj: object, noreserved: bool = False) -> list:
-    thedir = dir(obj)
+def get_dir(obj: object, no_reserved: bool = False) -> list:
+    the_dir = dir(obj)
     e = []
-    for i in thedir:
-        if noreserved and i.startswith("__") and i.endswith("__"): continue
+    for i in the_dir:
+        if no_reserved and i.startswith("__") and i.endswith("__"):
+            continue
         e.append((i, eval("obj." + str(i), {}, {'obj': obj})))
     return e
 
 
-def objtodict(obj: object) -> dict:
-    thedir = list(object.__dir__(obj))
+def obj_to_dict(obj: object) -> dict:
+    the_dir = list(object.__dir__(obj))
     try:
-        thedir.remove("__abstractmethods__")
-    except:
+        the_dir.remove("__abstractmethods__")
+    except ValueError:
         pass
     e = {}
-    for i in thedir:
+    for i in the_dir:
         e[i] = eval("obj." + str(i), {}, {'obj': obj})
     return e
 
 
-def getdirstr(obj: object, noreserved: bool = False) -> str:
-    thedir = dir(obj)
+def get_dir_str(obj: object, no_reserved: bool = False) -> str:
+    the_dir = dir(obj)
     e = ""
-    for i in thedir:
-        if i == "__dict__": continue
-        if noreserved and i.startswith("__") and i.endswith("__"): continue
+    for i in the_dir:
+        if i == "__dict__":
+            continue
+        if no_reserved and i.startswith("__") and i.endswith("__"):
+            continue
         e += str((i, eval("obj." + i, {}, {"obj": obj}))) + ")\n"
     return e[:-1]
 
 
-def getdirstrwodf(obj: object, noreserved: bool = False) -> str:
-    thedir = list(object.__dir__(obj))
+def get_dir_str_wodf(obj: object, no_reserved: bool = False) -> str:
+    the_dir = list(object.__dir__(obj))
     try:
-        thedir.remove("__abstractmethods__")
-    except:
+        the_dir.remove("__abstractmethods__")
+    except ValueError:
         pass
     e = ""
-    for i in thedir:
-        if i == "__dict__": continue
-        if noreserved and i.startswith("__") and i.endswith("__"): continue
+    for i in the_dir:
+        if i == "__dict__":
+            continue
+        if no_reserved and i.startswith("__") and i.endswith("__"):
+            continue
         e += str((i, eval("obj." + i, {}, {"obj": obj}))) + ")\n"
     return e[:-1]
 
 
-def getobjfromid(theid: int) -> object:
+def get_obj_from_id(the_id: int) -> object:
     """Recommended to use instead of this a weak-reference."""
-    return ctypes.cast(theid, ctypes.py_object).value
+    return ctypes.cast(the_id, ctypes.py_object).value
 
 
+# noinspection PyPep8Naming
 class thread(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
         if name is None:
@@ -1116,6 +1145,7 @@ class thread(threading.Thread):
             print_err("Kill thread failure. Thread ID:" + thread_id + " Thread Name:" + self.name)
 
 
+# noinspection PyPep8Naming
 class run_with_multiprocessing(multiprocessing.Process):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=None):
         if kwargs is None:
@@ -1139,47 +1169,48 @@ def run_as_thread(group=None, target=None, name=None, args=(), kwargs=None, *, d
 
 try:
     import psutil
-except:
+except ImportError:
     print_err("Psutil import error.")
+    psutil = None
 if psutil is not None:
     def getAvailMem() -> float:
         """Available Memory in MB."""
         return psutil.virtual_memory().available / 1024 ** 2
 
 
-    def checkMem(threshold: int = 250, freeze: bool = True, printwarn: bool = True) -> int:
+    def checkMem(threshold: int = 250, freeze: bool = True, print_warning: bool = True) -> int:
         """Checks if enough memory is available. If not over threshold, will return 2.\n
-        If its over the threshold it will try a collect command on the garbagecollector and will return a 1\n
+        If its over the threshold it will try a collect command on the garbage collector and will return a 1\n
         If its still over the threshold, 2 stuff can happen:\n
         If freeze is true(as default), the thread calling will freeze till its under the threshold and will return 0.\n
         If freeze is false, MemoryError will be raised."""
-        isover = threshold >= getAvailMem()
-        if isover:
+        is_over = threshold >= getAvailMem()
+        if is_over:
             gc.collect()
         else:
             return 2
-        isover = threshold >= getAvailMem()
-        if freeze and isover:
-            if printwarn:
+        is_over = threshold >= getAvailMem()
+        if freeze and is_over:
+            if print_warning:
                 print_warn("Out of memory warning. Available memory is under the threshold of " + str(
                     threshold) + " megabytes.")
                 print_warn(
                     "Program has frozen. Program will automatically unfreeze until available memory is over threshold.")
             waituntil("threshold < getAvailMem()", {"getAvailMem": getAvailMem, "threshold": threshold}, 1)
-            if printwarn:
+            if print_warning:
                 print_warn("Program automatically unfrozen.")
             return 0
-        elif isover:
+        elif is_over:
             raise MemoryError
         else:
             return 1
 else:
-    getAvailMem = passkw
-    checkMem = passkw
+    getAvailMem = pass_func
+    checkMem = pass_func
     print_warn("getAvailMem and checkMem will be unavailable due to psutil import error.")
 
 
-def servcontosock(connection: Tuple[socket.socket, IpAddress]):
+def serv_con_to_sock(connection: Tuple[socket.socket, IpAddress]):
     sock = Socket(connection[1], connection[0])
     return sock
 
@@ -1188,69 +1219,70 @@ def servcontosock(connection: Tuple[socket.socket, IpAddress]):
 class Socket(enhancedobject):
     """A network socket. You can send anything through it."""
 
-    def __init__(self, address: IpAddress, thesocket: socket.SocketType = None, **kwargs):
+    def __init__(self, address: IpAddress, the_socket: socket.SocketType = None):
         """Create a new socket on address"""
-        super().__init__(address, thesocket, **kwargs)
+        super().__init__(address, the_socket)
 
     # noinspection PyAttributeOutsideInit
-    def oninit(self, address: IpAddress, thesocket: socket.SocketType = None, **kwargs):
+    def onInit(self, address: IpAddress, the_socket: socket.SocketType = None):
         self.address = address
-        if thesocket is None:
+        if the_socket is None:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._socket.connect(address)
         else:
-            self._socket = thesocket
-        self.issocketclosed = False
+            self._socket = the_socket
+        self.is_socket_closed = False
 
     # noinspection PyAttributeOutsideInit
-    def send(self, data, internalinstruction=0) -> Union[None, ConnectionResetError]:
+    def send(self, data, internal_instruction=0) -> Union[None, ConnectionResetError]:
         """Sends data. It gets converted into a bytes object by pickle module and sent."""
-        if not self.issocketclosed:
+        if not self.is_socket_closed:
             try:
                 self._socket.send(
                     pickle.dumps(
                         {
-                            "internal": internalinstruction,
+                            "internal": internal_instruction,
                             "message": data
                         }
                     )
                 )
             except ConnectionResetError as e:
-                self.issocketclosed = True
+                self.is_socket_closed = True
                 return e
 
     def recv(self, buffer_size: int) -> Any:
         """Reads data.\n
         It gets returned as a bytes object if decode is False"""
-        if not self.issocketclosed:
+        if not self.is_socket_closed:
             try:
                 data = pickle.loads(self._socket.recv(buffer_size))
                 return data
             except ConnectionResetError:
-                self.issocketclosed = True
+                self.is_socket_closed = True
             except pickle.PickleError as e:
-                print_err("Connection error. Socket id {sockid} will be closed.".format(sockid=id(self)))
-                self.send(self.internalinstr("disconnect", "pickle.UnpicklingError:" + str(str(" ").join(e.args))),
+                print_err("Connection error. Socket id {sock_id} will be closed.".format(sock_id=id(self)))
+                self.send(self.internal_instruction("disconnect", "pickle.UnpicklingError:" + str(str(" ").join(e.args))),
                           True)
                 self.close()
-                self.issocketclosed = True
+                self.is_socket_closed = True
 
     @staticmethod
-    def internalinstr(inst, *args):
+    def internal_instruction(inst, *args):
         args: list = list(args)
-        for _ in range(5 - len(args)): args.append(None)
+        for _ in range(5 - len(args)):
+            args.append(None)
         instructions = {
             "disconnect": {
                 "type": "disconnect",
                 "message": str((args[0] if args[0] is not None else "Disconnected"))},
-            "connectfail": {
-                "type": "connectfail",
+            "connectFail": {
+                "type": "connectFail",
                 "message": str((args[0] if args[0] is not None else "Disconnected"))},
-            "connectok": {
-                "type": "connectok",
+            "connectOk": {
+                "type": "connectOk",
                 "message": args[0]},
-            "isonlinecheck": {
-                "type": "isonlinecheck"},
+            "ping": {
+                "type": "ping"},
             "ch_buf_size": {
                 "type": "ch_buf_size",
                 "message": int((args[0] if args[0] is not None else 1024))},
@@ -1260,9 +1292,9 @@ class Socket(enhancedobject):
     def close(self):
         try:
             self._socket.close()
-            self.issocketclosed = True
+            self.is_socket_closed = True
         except ConnectionResetError:
-            self.issocketclosed = True
+            self.is_socket_closed = True
 
 
 # noinspection PyAttributeOutsideInit
@@ -1272,43 +1304,43 @@ class ListeningServerSocket(enhancedobject):
     def __init__(self, address: Tuple[str, int]):
         super().__init__(address)
 
-    def oninit(self, address: Tuple[str, int]):
+    def onInit(self, address: Tuple[str, int]):
         """Make a listening network socket on the address."""
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.bind(address)
         self._socket.listen(4)
-        self.newconnections: List[Socket] = []
+        self.newConnections: List[Socket] = []
         self.connections: List[Socket] = []
         self.listening = False
-        self.__listeningthread = None
+        self.__listening_thread = None
 
-    def listen(self, functonconnect: FunctionType = None):
+    def listen(self, function_on_connect: FunctionType = None):
         if not self.listening:
             self.listening = True
-            self.__listeningthread = thread(target=self.__class__.__listen, args=(self, functonconnect))
-            self.__listeningthread.start()
+            self.__listening_thread = thread(target=self.__class__.__listen, args=(self, function_on_connect))
+            self.__listening_thread.start()
 
-    def __listen(self, functonconnect):
+    def __listen(self, function_on_connect):
         while True:
-            c = servcontosock(self._socket.accept())
+            c = serv_con_to_sock(self._socket.accept())
             self.connections.append(c)
-            self.newconnections.append(c)
-            if functonconnect is not None:
-                functonconnect(c)
-            self.checkforclosedcons()
+            self.newConnections.append(c)
+            if function_on_connect is not None:
+                run_with_thread(target=function_on_connect, args=(c,))
+            self.checkForClosedCons()
 
-    def checkforclosedcons(self):
+    def checkForClosedCons(self):
         for index, i in enumerate(self.connections):
-            if i.issocketclosed:
+            if i.is_socket_closed:
                 self.connections[index].delete()
 
 
-class carg:
-    def __new__(cls, arg, normaltype=None):
-        if normaltype is not None:
-            return normaltype(arg)
+class CArgument:
+    def __new__(cls, arg, normal_type=None):
+        if normal_type is not None:
+            return normal_type(arg)
         else:
-            return carg.__find(arg)
+            return cls.__find(arg)
 
     @staticmethod
     def __bytes(arg: bytes):
@@ -1324,29 +1356,29 @@ class carg:
         else:
             return ctypes.c_wchar_p(arg)
 
-    @staticmethod
-    def __tuple(arg: tuple):
+    @classmethod
+    def __tuple(cls, arg: tuple):
         arg = copy.copy(tuple(arg))
         if len(arg) == 0:
             raise ctypes.ArgumentError("If list/tuple is empty, you must follow it up with the type.")
-        x = carg.__find(arg[0]).__class__
+        x = cls.__find(arg[0]).__class__
         for i in range(1, len(arg)):
-            y = carg.__find(arg[i]).__class__
+            y = cls.__find(arg[i]).__class__
             if x != y:
-                x = carg.__modtype(x, y)
-        return (carg((arg[0], None)).__class__ * len(arg))(*arg)
+                x = cls.__mod_type(x, y)
+        return (cls((arg[0], None)).__class__ * len(arg))(*arg)
 
-    @staticmethod
-    def __find(arg: Any):
+    @classmethod
+    def __find(cls, arg: Any):
         switch = {
             bool: ctypes.c_bool,
-            bytes: carg.__bytes,
-            str: carg.__str,
+            bytes: cls.__bytes,
+            str: cls.__str,
             int: ctypes.c_int,
             float: ctypes.c_float,
             type(None): ctypes.c_void_p,
-            tuple: carg.__tuple,
-            list: carg.__tuple
+            tuple: cls.__tuple,
+            list: cls.__tuple
         }
         try:
             return switch[type(arg)](arg)
@@ -1356,7 +1388,7 @@ class carg:
             return arg
 
     @staticmethod
-    def __modtype(old: type, new: type):
+    def __mod_type(old: type, new: type):
         if (old, new) in [(ctypes.c_wchar, ctypes.c_wchar_p), (ctypes.c_char_p, ctypes.c_char),
                           (ctypes.c_char, ctypes.c_char_p), (ctypes.c_char_p, ctypes.c_char)]:
             if (old, new) == (ctypes.c_wchar, ctypes.c_wchar_p):
@@ -1372,17 +1404,17 @@ class carg:
 def exec_CFUNC(func: ctypes.CFUNCTYPE, res_type: Any, *args: Any):
     """Executes c function with arguments"""
     func.restype = res_type
-    newargs = (carg(i) for i in args)
-    return func(*newargs)
+    new_args = (CArgument(i) for i in args)
+    return func(*new_args)
 
 
 def exec_nrCFUNC(func: ctypes.CFUNCTYPE, *args: Any):
     """Executes c function with arguments"""
-    newargs = (carg(i) for i in args)
-    return func(*newargs)
+    new_args = (CArgument(i) for i in args)
+    return func(*new_args)
 
 
-def getfromchoicewcond(prompt: str, cond: str, global_vars=None, local_vars=None) -> str:
+def get_from_choice_with_cond(prompt: str, cond: str, global_vars=None, local_vars=None) -> str:
     if local_vars is None:
         local_vars = {}
     if global_vars is None:
@@ -1459,14 +1491,18 @@ def repr_obj(obj: object):
 
 
 def str_obj(self):
-    if type(self) == type(""):
+    if isinstance(self, str):
         return type("")(self)
     if type in self.__class__.__mro__:
         return self.__str__(self)
     return self.__str__()
 
 
-def runfuncwthread(func, group=None, name=None, *, daemon=True):
+def len_obj(self: Sized):
+    return self.__len__()
+
+
+def run_func_with_thread(func, group=None, name=None, *, daemon=True):
     def wrapper(*args, **kwargs):
         return run_as_thread(group=group, target=func, name=name, args=args, kwargs=kwargs, daemon=daemon)
 
@@ -1480,12 +1516,37 @@ def unfreeze_tuple(self):
 
 class Clock:
     def __init__(self):
-        self.start = time.time()
+        self.__start = time.time()
+        self.thr = run_as_thread(target=self.__class__.__fps_count, args=(self,))
+        self.__f = 0
+        self.__new_f = 0
+        self.__t = [self.__start, self.__start]
 
-    def tick(self, fps: int):
-        p = (1 / fps) - (time.time() - self.start)
+    def tick(self, fps: int) -> float:
+        """Tick clock and return ms waited float"""
+        x = time.time()
+        self.__t.pop(0)
+        self.__t.append(x)
+        p = (1 / fps) - (x - self.__start)
         if p > 0:
             wait_seconds(p)
+        self.__f += 1
+        self.__start = time.time()
+        return p * 1000.0
+
+    def __fps_count(self):
+        while True:
+            wait_seconds(1)
+            self.__new_f = self.__f
+            self.__f = 0
+
+    def get_fps(self) -> int:
+        """Gets FPS."""
+        return self.__new_f
+
+    def get_time(self) -> float:
+        """Return float of ms between the last 2 calls of tick()"""
+        return (self.__t[1] - self.__t[0]) * 1000.0
 
 
 def print_a_rainbow(splits: int = 1):
@@ -1493,31 +1554,56 @@ def print_a_rainbow(splits: int = 1):
     i = 0.0
     try:
         while i != 360:
-            x = tuple(int(i) for i in hsv_to_rgb((i, 1.0, 1.0)))
+            # noinspection PyTypeChecker
+            x: Tuple[int, int, int] = tuple(int(i) for i in hsv_to_rgb((i, 1.0, 1.0)))
+            assert len(x) == 3
             string += colorify_high(" ", (0, 0, 0), 0, x)
             i += (90.0 / splits)
             if i > 360:
                 break
     except KeyboardInterrupt:
         pass
-    print(string)
     return string
 
 
 def hsv_to_rgb(hsv: Tuple[Union[int, float], Union[int, float], Union[int, float]]) -> Tuple[int, int, int]:
-    C = hsv[2] * hsv[1]
-    X = C * (1 - abs((hsv[0] / 60) % 2 - 1))
-    m = hsv[2] - C
+    c = hsv[2] * hsv[1]
+    x = c * (1 - abs((hsv[0] / 60) % 2 - 1))
+    m = hsv[2] - c
     switch = {
-        0 <= hsv[0] < 60: (C, X, 0),
-        60 <= hsv[0] < 120: (X, C, 0),
-        120 <= hsv[0] < 180: (0, C, X),
-        180 <= hsv[0] < 240: (0, X, C),
-        240 <= hsv[0] < 300: (X, 0, C),
-        300 <= hsv[0] < 360: (C, 0, X)
+        0 <= hsv[0] < 60: (c, x, 0),
+        60 <= hsv[0] < 120: (x, c, 0),
+        120 <= hsv[0] < 180: (0, c, x),
+        180 <= hsv[0] < 240: (0, x, c),
+        240 <= hsv[0] < 300: (x, 0, c),
+        300 <= hsv[0] < 360: (c, 0, x)
     }
     x = switch[True]
-    return ((x[0] + m) * 255, (x[1] + m) * 255, (x[2] + m) * 255)
+    return (x[0] + m) * 255, (x[1] + m) * 255, (x[2] + m) * 255
+
+
+def isiterable(obj: Union[Iterable, Any]):
+    try:
+        iter(obj)
+        return True
+    except TypeError:
+        return False
+
+
+@forbiddenfruit.curses(dict, "try_delete")
+def try_delete_dict(self, key: Union[Any, Iterable]):
+    if isiterable(key):
+        keys = key
+        for key in keys:
+            try:
+                del self[key]
+            except KeyError:
+                pass
+    else:
+        try:
+            del self[key]
+        except KeyError:
+            pass
 
 
 if os.name == 'nt':
@@ -1533,8 +1619,29 @@ else:
 curse_mod(dict, "__hash__", hash_dict)
 replace_all(hash, hash_obj)
 replace_all(repr, repr_obj)
+replace_all(len, len_obj)
 curse_mod(object, "toString", str_obj)
 curse_mod(type(type), "toString", str_obj)
 
-if __name__ == "__main__":
-    Shell().run(globals())
+
+def get_obj_mem(obj):
+    return (ctypes.c_char * sys.getsizeof(obj)).from_address(id(obj))
+
+
+class HideMeta(type):
+    def __new__(mcs, cls_name, cls_bases, cls_dict):
+        cls_dict.setdefault("__excluded__", [])
+        out_cls = super(HideMeta, mcs).__new__(mcs, cls_name, cls_bases, cls_dict)
+
+        def __getattribute__(self, name):
+            if name in cls_dict["__excluded__"]:
+                raise AttributeError(name)
+            else:
+                return super(out_cls, self).__getattribute__(name)
+        out_cls.__getattribute__ = __getattribute__
+
+        def __dir__(self):
+            return sorted((set(dir(out_cls)) | set(self.__dict__.keys())) - set(cls_dict["__excluded__"]))
+        out_cls.__dir__ = __dir__
+
+        return out_cls
