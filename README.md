@@ -13,7 +13,7 @@ Features:
 
 > .hash() also to all objects, calls \_\_hash\_\_()
 
-> Getting objects from ID (not recommended, use weak references)
+> Getting objects from ID (get_obj_from_id, not recommended, use weak references)
 
 > Easy networking (ListeningServerSocket,Socket)
 
