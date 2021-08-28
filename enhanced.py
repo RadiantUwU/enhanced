@@ -581,29 +581,29 @@ class terminalcolors:
 class enhanced_object(object):
     def __new__(cls, *args, **kwargs) -> enhanced_object:
         self = object.__new__(cls)
-        self.__initialized = False
-        self.__preInitialized = False
-        self.__deleted = False
+        self._private_initialized = False
+        self._private_preInitialized = False
+        self._private_deleted = False
         self.deleted = False
         cls.onPreInit(self, *args, **kwargs)
-        self.__preInitialized = True
+        self._private_preInitialized = True
         return self
 
     def __init__(self, *args, **kwargs) -> None:
         self.onInit(*args, **kwargs)
-        self.__initialized = True
+        self._private_initialized = True
 
     def __hash__(self) -> int:
         return hash(json.dumps(copy.deepcopy(self.__dict__), sort_keys=True))
 
     def __eq__(self, other: object) -> bool:
-        if self.__class__.__mro__[-2] is other.__class__.__mro__[-2]:
+        if enhanced_object in type(other).__mro__:
             return hash(self) == hash(other)
         else:
             return False
 
     def __repr__(self) -> str:
-        if self.__initialized:
+        if self._private_initialized:
             return "<" + str(self.__class__).replace("<class '", "").replace("'>", "") + ' enhanced_object at 0x' + (
                     "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
                                                                                                       "").upper()) + ">"
@@ -626,7 +626,7 @@ class enhanced_object(object):
 
     def equals(self, other: object) -> bool:
         """Checks if an object is equal to the other."""
-        if self.__class__.__mro__[-2] is other.__class__.__mro__[-2]:
+        if enhanced_object in type(other).__mro__:
             return hash(self) == hash(other)
         else:
             return False
@@ -664,7 +664,7 @@ class enhanced_object(object):
 
     def init(self, *args, **kwargs) -> None:
         """Initializes the object, if its already initialized, throws a Warning"""
-        if not self.__initialized:
+        if not self._private_initialized:
             self.__init__(*args, **kwargs)
         else:
             raise AlreadyInitializedWarning
@@ -676,7 +676,7 @@ class enhanced_object(object):
         pass
 
     def delete(self, force=False) -> int:
-        if not self.__deleted:
+        if not self._private_deleted:
             self.ondelete()
         ref = gc.get_referrers(self)
         immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
@@ -702,7 +702,7 @@ class enhanced_object(object):
                         i.remove(self)
             else:
                 pass
-        self.__deleted = True
+        self._private_deleted = True
         self.deleted = True
         if force:
             self.forcedel()
@@ -718,9 +718,9 @@ class enhanced_object(object):
         return gc.get_referrers(self)
 
     def __del__(self) -> None:
-        if not self.__deleted:
+        if not self._private_deleted:
             self.ondelete(True)
-            self.__deleted = True
+            self._private_deleted = True
             self.deleted = True
         self.ongcdelete()
 
@@ -1341,15 +1341,15 @@ class ListeningServerSocket(enhanced_object):
         self.newConnections: List[Socket] = []
         self.connections: List[Socket] = []
         self.listening = False
-        self.__listening_thread = None
+        self._private_listening_thread = None
 
     def listen(self, function_on_connect: FunctionType = None):
         if not self.listening:
             self.listening = True
-            self.__listening_thread = thread(target=self.__class__.__listen, args=(self, function_on_connect))
-            self.__listening_thread.start()
+            self._private_listening_thread = thread(target=type(self)._private_listen, args=(self, function_on_connect))
+            self._private_listening_thread.start()
 
-    def __listen(self, function_on_connect):
+    def _private_listen(self, function_on_connect):
         while True:
             c = serv_con_to_sock(self._socket.accept())
             self.connections.append(c)
@@ -1369,45 +1369,45 @@ class CArgument:
         if normal_type is not None:
             return normal_type(arg)
         else:
-            return cls.__find(arg)
+            return cls._private_find(arg)
 
     @staticmethod
-    def __bytes(arg: bytes):
+    def _private_bytes(arg: bytes):
         if len(arg) == 1:
             return ctypes.c_char(arg)
         else:
             return ctypes.c_char_p(arg)
 
     @staticmethod
-    def __str(arg: str):
+    def _private_str(arg: str):
         if len(arg) == 1:
             return ctypes.c_wchar(arg)
         else:
             return ctypes.c_wchar_p(arg)
 
     @classmethod
-    def __tuple(cls, arg: tuple):
+    def _private_tuple(cls, arg: tuple):
         arg = copy.copy(tuple(arg))
         if len(arg) == 0:
             raise ctypes.ArgumentError("If list/tuple is empty, you must follow it up with the type.")
-        x = cls.__find(arg[0]).__class__
+        x = cls._private_find(arg[0]).__class__
         for i in range(1, len(arg)):
-            y = cls.__find(arg[i]).__class__
+            y = cls._private_find(arg[i]).__class__
             if x != y:
-                x = cls.__mod_type(x, y)
+                x = cls._private_mod_type(x, y)
         return (cls((arg[0], None)).__class__ * len(arg))(*arg)
 
     @classmethod
-    def __find(cls, arg: Any):
+    def _private_find(cls, arg: Any):
         switch = {
             bool: ctypes.c_bool,
-            bytes: cls.__bytes,
-            str: cls.__str,
+            bytes: cls._private_bytes,
+            str: cls._private_str,
             int: ctypes.c_int,
             float: ctypes.c_float,
             type(None): ctypes.c_void_p,
-            tuple: cls.__tuple,
-            list: cls.__tuple
+            tuple: cls._private_tuple,
+            list: cls._private_tuple
         }
         try:
             return switch[type(arg)](arg)
@@ -1420,7 +1420,7 @@ class CArgument:
             return arg
 
     @staticmethod
-    def __mod_type(old: type, new: type):
+    def _private_mod_type(old: type, new: type):
         if (old, new) in [(ctypes.c_wchar, ctypes.c_wchar_p), (ctypes.c_char_p, ctypes.c_char),
                           (ctypes.c_char, ctypes.c_char_p), (ctypes.c_char_p, ctypes.c_char)]:
             if (old, new) == (ctypes.c_wchar, ctypes.c_wchar_p):
@@ -1517,7 +1517,7 @@ def hash_obj(obj: object):
     if obj.__hash__ is not None:
         return obj.__hash__()
     else:
-        raise TypeError("unhashable type: '" + obj.__class__.__name__ + "'")
+        raise TypeError("unhashable type: '" + type(obj).__name__ + "'")
 
 
 def repr_obj(obj: object):
@@ -1527,7 +1527,7 @@ def repr_obj(obj: object):
 def str_obj(self):
     if isinstance(self, str):
         return type("")(self)
-    if type in self.__class__.__mro__:
+    if type in type(self).__mro__:
         return self.__str__(self)
     return self.__str__()
 
@@ -1550,37 +1550,37 @@ def unfreeze_tuple(self):
 
 class Clock:
     def __init__(self):
-        self.__start = time.time()
-        self.thr = run_with_thread(target=self.__class__.__fps_count, args=(self,))
-        self.__f = 0
-        self.__new_f = 0
-        self.__t = [self.__start, self.__start]
+        self._private_start = time.time()
+        self.thr = run_with_thread(target=type(self)._private_fps_count, args=(self,))
+        self._private_f = 0
+        self._private_new_f = 0
+        self._private_t = [self._private_start, self._private_start]
 
     def tick(self, fps: int) -> float:
         """Tick clock and return ms waited float"""
         x = time.time()
-        self.__t.pop(0)
-        self.__t.append(x)
-        p = (1 / fps) - (x - self.__start)
+        self._private_t.pop(0)
+        self._private_t.append(x)
+        p = (1 / fps) - (x - self._private_start)
         if p > 0:
             wait_seconds(p)
-        self.__f += 1
-        self.__start = time.time()
+        self._private_f += 1
+        self._private_start = time.time()
         return p * 1000.0
 
-    def __fps_count(self):
+    def _private_fps_count(self):
         while True:
             wait_seconds(1)
-            self.__new_f = self.__f
-            self.__f = 0
+            self._private_new_f = self._private_f
+            self._private_f = 0
 
     def get_fps(self) -> int:
         """Gets FPS."""
-        return self.__new_f
+        return self._private_new_f
 
     def get_time(self) -> float:
         """Return float of ms between the last 2 calls of tick()"""
-        return (self.__t[1] - self.__t[0]) * 1000.0
+        return (self._private_t[1] - self._private_t[0]) * 1000.0
 
 
 def print_a_rainbow(splits: int = 1):
@@ -1656,8 +1656,8 @@ replace_all(repr, repr_obj)
 replace_all(len, len_obj)
 curse_mod(object, "toString", str_obj)
 curse_mod(type, "toString", str_obj)
-curse_mod(object, "hash", hash)
-curse_mod(type, "hash", hash)
+curse_mod(object, "hash", hash_obj)
+curse_mod(type, "hash", hash_obj)
 
 
 def get_obj_mem(obj):
@@ -1715,6 +1715,16 @@ class enhanced_type(type, enhanced_object):
             return x
         else:
             raise TypeError('enhanced_type() takes 1 or 3 arguments')
+
+    def __add__(self, other):
+        assert isinstance(other, type)
+        assert type(self) == type(other)
+        new_dict = {**dict(self.__dict__), **dict(other.__dict__)}
+        new_bases = list(self.__bases__)
+        new_bases.extend(other.__bases__)
+        new_bases = tuple(set(new_bases))
+        new_name = self.__name__ + "___" + other.__name__
+        return type(self).__new__(type(self), new_name, new_bases, new_dict)
 
 
 # noinspection SpellCheckingInspection
