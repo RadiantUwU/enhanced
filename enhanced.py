@@ -1412,7 +1412,10 @@ class CArgument:
         try:
             return switch[type(arg)](arg)
         except KeyError:
-            if not type(arg).__module__.__name__ == "ctypes":
+            try:
+                if not type(arg).__module__.__name__ == "ctypes":
+                    return ctypes.py_object(arg)
+            except AttributeError:
                 return ctypes.py_object(arg)
             return arg
 
