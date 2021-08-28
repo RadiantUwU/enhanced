@@ -40,3 +40,7 @@ Features:
 > always_return function which returns another function that always returns the value given, not caring about the arguments given to it.
 
 > pass_func which returns `None` always, not caring about the arguments
+
+> `enhanced_object` class meant to be inherited
+
+> `enhanced_type` class meant to be used as a type
