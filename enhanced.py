@@ -29,7 +29,7 @@ import json
 import traceback
 # noinspection PyUnresolvedReferences
 from types import FunctionType, MethodType, ModuleType
-from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized
+from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized, Dict
 import forbiddenfruit
 import gc
 import time
@@ -540,7 +540,7 @@ def getError():
 
 
 # noinspection PyPep8Naming,SpellCheckingInspection
-class enhancedobject:
+class enhanced_object:
     pass
 
 
@@ -578,8 +578,8 @@ class terminalcolors:
 
 
 # noinspection PyRedeclaration,PyUnresolvedReferences,PyAttributeOutsideInit,PyPep8Naming,SpellCheckingInspection
-class enhancedobject(object):
-    def __new__(cls, *args, **kwargs) -> enhancedobject:
+class enhanced_object(object):
+    def __new__(cls, *args, **kwargs) -> enhanced_object:
         self = object.__new__(cls)
         self.__initialized = False
         self.__preInitialized = False
@@ -604,23 +604,23 @@ class enhancedobject(object):
 
     def __repr__(self) -> str:
         if self.__initialized:
-            return "<" + str(self.__class__).replace("<class '", "").replace("'>", "") + ' enhancedobject at 0x' + (
+            return "<" + str(self.__class__).replace("<class '", "").replace("'>", "") + ' enhanced_object at 0x' + (
                     "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
                                                                                                       "").upper()) + ">"
         else:
             return "<" + str(self.__class__).replace("<class '", "").replace("'>",
-                                                                             "") + ' enhancedobject(uninitialized) at 0x' + (
+                                                                             "") + ' enhanced_object(uninitialized) at 0x' + (
                            "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
                                                                                                              "").upper()) + ">"
 
     def __str__(self) -> str:
         return self.__repr__()
 
-    def shallowCopy(self) -> enhancedobject:
+    def shallowCopy(self) -> enhanced_object:
         """Shallow copy the object"""
         return copy.copy(self)
 
-    def deepCopy(self) -> enhancedobject:
+    def deepCopy(self) -> enhanced_object:
         """Deep copy the object"""
         return copy.deepcopy(self)
 
@@ -640,11 +640,11 @@ class enhancedobject(object):
         """Returns the inheritances of the object, the last, being builtins.object"""
         return cls.__mro__
 
-    def __ne__(self, other: enhancedobject) -> bool:
+    def __ne__(self, other: enhanced_object) -> bool:
         return not self.__eq__(other)
 
     @classmethod
-    def headlessNew(cls, *args, **kwargs) -> enhancedobject:
+    def headlessNew(cls, *args, **kwargs) -> enhanced_object:
         """Returns an uninitialized instance of this class."""
         return cls.__new__(cls, *args, **kwargs)
 
@@ -655,7 +655,7 @@ class enhancedobject(object):
         pass
 
     @classmethod
-    def new(cls, *args, **kwargs) -> enhancedobject:
+    def new(cls, *args, **kwargs) -> enhanced_object:
         """Returns an initialized instance of this class."""
         obj = cls.__new__(*args, **kwargs)
         if isinstance(obj, cls):
@@ -780,7 +780,7 @@ class enhancedobject(object):
 
 
 # noinspection SpellCheckingInspection
-class AttributableObject(enhancedobject):
+class AttributableObject(enhanced_object):
     def __init__(self, thedict=None):
         """Makes a new attributable object from the dictionary"""
         super().__init__()
@@ -792,7 +792,7 @@ class AttributableObject(enhancedobject):
 
 
 # noinspection PyPep8Naming,SpellCheckingInspection
-class unfrozentuple(enhancedobject):
+class unfrozentuple(enhanced_object):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         if len(args) == 1:
@@ -1092,6 +1092,16 @@ def get_dir(obj: object, no_reserved: bool = False) -> list:
     return e
 
 
+def get_dir_wodf(obj: object, no_reserved: bool = False) -> list:
+    the_dir = dir(obj)
+    e = []
+    for i in the_dir:
+        if no_reserved and i.startswith("__") and i.endswith("__"):
+            continue
+        e.append((i, eval("obj." + str(i), {}, {'obj': obj})))
+    return e
+
+
 def obj_to_dict(obj: object) -> dict:
     the_dir = list(object.__dir__(obj))
     try:
@@ -1234,7 +1244,7 @@ def serv_con_to_sock(connection: Tuple[socket.socket, IpAddress]):
 
 
 # noinspection PyAttributeOutsideInit
-class Socket(enhancedobject):
+class Socket(enhanced_object):
     """A network socket. You can send anything through it."""
 
     def __init__(self, address: IpAddress, the_socket: socket.SocketType = None):
@@ -1317,7 +1327,7 @@ class Socket(enhancedobject):
 
 
 # noinspection PyAttributeOutsideInit
-class ListeningServerSocket(enhancedobject):
+class ListeningServerSocket(enhanced_object):
     """A listening network socket."""
 
     def __init__(self, address: Tuple[str, int]):
@@ -1433,7 +1443,7 @@ def exec_nrCFUNC(func: ctypes.CFUNCTYPE, *args: Any):
     return func(*new_args)
 
 
-def get_from_choice_with_cond(prompt: str, cond: str, global_vars=None, local_vars=None) -> str:
+def get_from_choice_with_cond(prompt: str, cond: str, invalid_choice_message: str = "Invalid choice!", global_vars: dict = None, local_vars: dict = None) -> str:
     if local_vars is None:
         local_vars = {}
     if global_vars is None:
@@ -1442,6 +1452,8 @@ def get_from_choice_with_cond(prompt: str, cond: str, global_vars=None, local_va
     while not chose:
         inp = input(prompt)
         chose = bool(eval(cond, global_vars, {**local_vars, "inp": inp}))
+        if not chose:
+            print(invalid_choice_message)
     # noinspection PyUnboundLocalVariable
     return inp
 
@@ -1640,7 +1652,9 @@ replace_all(hash, hash_obj)
 replace_all(repr, repr_obj)
 replace_all(len, len_obj)
 curse_mod(object, "toString", str_obj)
-curse_mod(type(type), "toString", str_obj)
+curse_mod(type, "toString", str_obj)
+curse_mod(object, "hash", hash)
+curse_mod(type, "hash", hash)
 
 
 def get_obj_mem(obj):
@@ -1648,6 +1662,67 @@ def get_obj_mem(obj):
 
 
 # noinspection PyPep8Naming
+class enhanced_type(type, enhanced_object):
+    @property
+    def __class__(cls=None):
+        return enhanced_type
+
+    @classmethod
+    def enhance(mcs, klass: type) -> type:
+        assert isinstance(klass, type)
+        if type(klass) is not mcs:
+            klass_dict: dict = forbiddenfruit.patchable_builtin(klass)
+            type_enhanced = enhanced_type(klass.__name__, klass.__bases__, copy.copy(klass_dict))
+            klass_dict.clear()
+            tuple(klass_dict.setdefault(key, value) for key, value in dict(type_enhanced.__dict__).items())
+            replace_all(klass, type_enhanced)
+            return type_enhanced
+        return klass
+
+    @staticmethod
+    def apply_metaclass(klass: type) -> type:
+        assert isinstance(klass, type)
+        if '__metaclass__' in klass.__dict__:
+            klass_dict: dict = forbiddenfruit.patchable_builtin(klass)
+            type_enhanced = enhanced_type(klass.__name__, klass.__bases__, copy.copy(klass_dict))
+            klass_dict.clear()
+            tuple(klass_dict.setdefault(key, value) for key, value in dict(type_enhanced.__dict__).items())
+            replace_all(klass, type_enhanced)
+            return type_enhanced
+        else:
+            return klass
+
+    def __new__(mcs, what: Union[Any, str], cls_bases: Tuple[type] = None, cls_dict: Dict[str, Any] = None):
+        """
+        enhanced_type(object_or_name, bases, dict)
+        enhanced_type(object) -> the object's enhanced_type
+        enhanced_type(name, bases, dict) -> a new enhanced_type
+        """
+        if cls_bases == cls_dict is None:
+            return type(what)
+        elif cls_dict is not None:
+            tp: List[type] = list(copy.copy(cls_bases))
+            if enhanced_object not in tp:
+                tp.append(enhanced_object)
+            if object in tp:
+                tp.remove(object)
+            tp: tuple[type, ...] = tuple(tp)
+            x = type.__new__(mcs, what, tp, cls_dict)
+            mcs.apply_metaclass(x)
+            return x
+        else:
+            raise TypeError('enhanced_type() takes 1 or 3 arguments')
+
+
+# noinspection SpellCheckingInspection
+def enhanced_typehash(self):
+    return hash(json.dumps(dict(self), sort_keys=True))
+
+
+curse_mod(enhanced_type, '__hash__', enhanced_typehash)
+
+
+# noinspection PyPep8Naming,SpellCheckingInspection
 class new_terminalcolors:
     reset = "\033[0m"
     bold = "\033[1m"
@@ -1706,4 +1781,4 @@ class new_terminalcolors:
             bg_col = bg + 8
         else:
             bg_col = bg + 16
-        return cls.reset + (cls.bold * (text_type % 2) + cls.underline * ((text_type >> 1) % 2) + cls.inverse * ((text_type >> 2) % 2)) + getattr(cls, x[bg_col]) + getattr(cls,x[fg_col])
+        return cls.reset + (cls.bold * (text_type % 2) + cls.underline * ((text_type >> 1) % 2) + cls.inverse * ((text_type >> 2) % 2)) + getattr(cls, x[bg_col]) + getattr(cls, x[fg_col])
