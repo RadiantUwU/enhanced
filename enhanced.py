@@ -19,6 +19,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+# new_terminalcolors made by GamingBox#8187
+
 # noinspection PyUnresolvedReferences
 import builtins
 import copy
@@ -763,6 +766,18 @@ class enhancedobject(object):
         for _ in range(self.getReferenceCount()[0]):
             pythonapi.Py_DecRef(e)
 
+    # noinspection PyUnusedLocal
+    def __deepcopy__(self, memodict=None):
+        if memodict is None:
+            memodict = {}
+        return self.__biggerdeepcopy__(self)
+
+    @classmethod
+    def __biggerdeepcopy__(cls, self):
+        x = super().__new__(cls)
+        x.__dict__ = dict(((key, copy.deepcopy(value)) for key, value in self.__dict__))
+        return x
+
 
 # noinspection SpellCheckingInspection
 class AttributableObject(enhancedobject):
@@ -983,8 +998,9 @@ def print_color(string: str, color: int = 0, the_type: int = 0, end: str = "\n")
     Color(default 0): Color, for more info, do terminalcolors.colortest
     Type(default 0): Type, for more info, do terminalcolors.typetest
     End(default \\n): End of print"""
-    print(terminalcolors.reset + terminalcolors.types[the_type % terminalcolors.types.__len__()] + terminalcolors.colors[
-        color % terminalcolors.colors.__len__()] + string + terminalcolors.reset, end=end)
+    print(
+        terminalcolors.reset + terminalcolors.types[the_type % terminalcolors.types.__len__()] + terminalcolors.colors[
+            color % terminalcolors.colors.__len__()] + string + terminalcolors.reset, end=end)
 
 
 # noinspection SpellCheckingInspection
@@ -996,14 +1012,16 @@ def print_rainbow(string: str, the_type: int = 0, end: str = "\n") -> None:
     print(rainbowify(string, the_type), end=end)
 
 
-def colorify_high(string: str, fg_color: Tuple[int, int, int], the_type: int = 0, bg_color: Tuple[int, int, int] = None):
+def colorify_high(string: str, fg_color: Tuple[int, int, int], the_type: int = 0,
+                  bg_color: Tuple[int, int, int] = None):
     assert len(fg_color) == 3
     if bg_color is None:
         return terminalcolors.types[the_type % 4] + terminalcolors.rgbcolor(*fg_color) + string + terminalcolors.reset
     else:
         assert len(bg_color) == 3
-        return terminalcolors.types[the_type % 4] + terminalcolors.rgbcolor(*fg_color) + terminalcolors.rgbcolor(*bg_color,
-                                                                                                                 False) + string + terminalcolors.reset
+        return terminalcolors.types[the_type % 4] + terminalcolors.rgbcolor(*fg_color) + terminalcolors.rgbcolor(
+            *bg_color,
+            False) + string + terminalcolors.reset
 
 
 def rainbowify(string: str, the_type: int = 0) -> str:
@@ -1155,13 +1173,13 @@ class run_with_multiprocessing(multiprocessing.Process):
         self.start()
 
 
-def run_with_thread(group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
+def run_as_thread(group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
     thr = threading.Thread(group=group, target=target, name=name, args=args, kwargs=kwargs, daemon=daemon)
     thr.start()
     thr.join()
 
 
-def run_as_thread(group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
+def run_with_thread(group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
     thr = thread(group=group, target=target, name=name, args=args, kwargs=kwargs, daemon=daemon)
     thr.start()
     return thr
@@ -1261,8 +1279,9 @@ class Socket(enhancedobject):
                 self.is_socket_closed = True
             except pickle.PickleError as e:
                 print_err("Connection error. Socket id {sock_id} will be closed.".format(sock_id=id(self)))
-                self.send(self.internal_instruction("disconnect", "pickle.UnpicklingError:" + str(str(" ").join(e.args))),
-                          True)
+                self.send(
+                    self.internal_instruction("disconnect", "pickle.UnpicklingError:" + str(str(" ").join(e.args))),
+                    True)
                 self.close()
                 self.is_socket_closed = True
 
@@ -1504,7 +1523,7 @@ def len_obj(self: Sized):
 
 def run_func_with_thread(func, group=None, name=None, *, daemon=True):
     def wrapper(*args, **kwargs):
-        return run_as_thread(group=group, target=func, name=name, args=args, kwargs=kwargs, daemon=daemon)
+        return run_with_thread(group=group, target=func, name=name, args=args, kwargs=kwargs, daemon=daemon)
 
     return wrapper
 
@@ -1517,7 +1536,7 @@ def unfreeze_tuple(self):
 class Clock:
     def __init__(self):
         self.__start = time.time()
-        self.thr = run_as_thread(target=self.__class__.__fps_count, args=(self,))
+        self.thr = run_with_thread(target=self.__class__.__fps_count, args=(self,))
         self.__f = 0
         self.__new_f = 0
         self.__t = [self.__start, self.__start]
@@ -1628,20 +1647,63 @@ def get_obj_mem(obj):
     return (ctypes.c_char * sys.getsizeof(obj)).from_address(id(obj))
 
 
-class HideMeta(type):
-    def __new__(mcs, cls_name, cls_bases, cls_dict):
-        cls_dict.setdefault("__excluded__", [])
-        out_cls = super(HideMeta, mcs).__new__(mcs, cls_name, cls_bases, cls_dict)
+# noinspection PyPep8Naming
+class new_terminalcolors:
+    reset = "\033[0m"
+    bold = "\033[1m"
+    underline = "\033[4m"
+    inverse = "\033[7m"
 
-        def __getattribute__(self, name):
-            if name in cls_dict["__excluded__"]:
-                raise AttributeError(name)
-            else:
-                return super(out_cls, self).__getattribute__(name)
-        out_cls.__getattribute__ = __getattribute__
+    black = "\033[30m"
+    red = "\033[31m"
+    green = "\033[32m"
+    yellow = "\033[33m"
+    blue = "\033[34m"
+    purple = "\033[35m"
+    lightblue = "\033[36m"
+    white = "\033[37m"
 
-        def __dir__(self):
-            return sorted((set(dir(out_cls)) | set(self.__dict__.keys())) - set(cls_dict["__excluded__"]))
-        out_cls.__dir__ = __dir__
+    bblack = "\033[40m"
+    bred = "\033[41m"
+    bgreen = "\033[42m"
+    byellow = "\033[43m"
+    bblue = "\033[44m"
+    bpurple = "\033[45m"
+    blightblue = "\033[46m"
+    bwhite = "\033[47m"
 
-        return out_cls
+    sblack = "\033[90m"
+    sred = "\033[91m"
+    sgreen = "\033[92m"
+    syellow = "\033[93m"
+    sblue = "\033[94m"
+    spurple = "\033[95m"
+    slightblue = "\033[96m"
+    swhite = "\033[97m"
+
+    sbblack = "\033[100m"
+    sbred = "\033[101m"
+    sbgreen = "\033[102m"
+    sbyellow = "\033[103m"
+    sbblue = "\033[104m"
+    sbpurple = "\033[105m"
+    sblightblue = "\033[106m"
+    sbwhite = "\033[107m"
+
+    @classmethod
+    def colorcmd(cls, bg: int, fg: int, text_type: int = 0):
+        x = [
+            "black", "blue", "green", "lightblue", "red", "purple", "yellow", "white", "bblack", "bblue", "bgreen",
+            "blightblue", "bred", "bpurple", "byellow", "bwhite", "sblack", "sblue", "sgreen", "slightblue", "sred",
+            "spurple", "syellow", "swhite", "sbblack", "sbblue", "sbgreen", "sblightblue", "sbred", "sbpurple",
+            "sbyellow", "sbwhite"]
+        assert 0 <= bg <= 15 and 0 <= fg <= 15 and 0 <= text_type <= 7
+        if fg < 8:
+            fg_col = fg
+        else:
+            fg_col = fg + 8
+        if bg < 8:
+            bg_col = bg + 8
+        else:
+            bg_col = bg + 16
+        return cls.reset + (cls.bold * (text_type % 2) + cls.underline * ((text_type >> 1) % 2) + cls.inverse * ((text_type >> 2) % 2)) + getattr(cls, x[bg_col]) + getattr(cls,x[fg_col])
