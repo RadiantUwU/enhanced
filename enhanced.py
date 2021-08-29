@@ -1,25 +1,4 @@
 # enhanced - Adds new features to python
-#
-# Copyright (c) 2021-2021 Radiant <stefan.i.davidoiu@gmail.com>
-#
-# This program is dual licensed under GPLv3 and MIT.
-#
-# GPLv3
-# -----
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
 # new_terminalcolors made by GamingBox#8187
 
 # noinspection PyUnresolvedReferences
@@ -29,7 +8,7 @@ import json
 import traceback
 # noinspection PyUnresolvedReferences
 from types import FunctionType, MethodType, ModuleType
-from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized, Dict
+from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized, Dict, Callable
 import forbiddenfruit
 import gc
 import time
@@ -43,6 +22,36 @@ import socket
 import pickle
 import os
 from time import sleep as wait_seconds
+from builtins import __import__ as importer
+
+
+@forbiddenfruit.curses(dict, 'index')
+def index_dict(self, value) -> Any:
+    if value in self.values():
+        return list(self.keys())[list(self.values()).index(value)]
+    else:
+
+        raise IndexError("Key with value " + str(value) + " does not exist.")
+
+
+def replace_all(old: object, new: object):
+    e = gc.get_referrers(old)
+    for i in e:
+        update_obj(i, old, new)
+
+
+def update_obj(obj, old, new):
+    immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
+    if type(obj) in immutables:
+        ty = type(obj)
+        f = list(obj)
+        f[f.index(old)] = new
+        f = ty(f)
+        for j in gc.get_referrers(obj):
+            update_obj(j, obj, f)
+    else:
+        if type(obj) == dict or type(obj) == list:
+            obj[obj.index(old)] = new
 
 
 # noinspection PyUnusedLocal
@@ -60,12 +69,268 @@ def always_return(var: Any):
     return returner
 
 
+# noinspection PyPep8Naming,PyMissingConstructor
+class enhanced_type(type):
+    @classmethod
+    def enhance(mcs, klass: type) -> type:
+        assert isinstance(klass, type)
+        if type(klass) is not mcs:
+            klass_dict: dict = forbiddenfruit.patchable_builtin(klass)
+            type_enhanced = enhanced_type(klass.__qualname__, klass.__bases__, copy.copy(klass_dict))
+            klass_dict.clear()
+            tuple(klass_dict.setdefault(key, value) for key, value in dict(type_enhanced.__dict__).items())
+            replace_all(klass, type_enhanced)
+            return type_enhanced
+        return klass
+
+    @staticmethod
+    def splittype(klass: type) -> Tuple[str, Tuple[type, ...], Dict[str, Any]]:
+        return klass.__qualname__, klass.__bases__, forbiddenfruit.patchable_builtin(klass)
+
+    def __new__(mcs, what: Union[Any, str], cls_bases: Tuple[type] = None, cls_dict: Dict[str, Any] = None):
+        """
+        enhanced_type(object_or_name, bases, dict)
+        enhanced_type(object) -> the object's enhanced_type
+        enhanced_type(name, bas es, dict) -> a new enhanced_type
+        """
+        if cls_bases == cls_dict is None:
+            return type(what)
+        elif cls_dict is not None:
+            tp: List[type] = list(copy.copy(cls_bases))
+            if enhanced_object not in tp:
+                tp.append(enhanced_object)
+            if object in tp:
+                tp.remove(object)
+            tp: tuple[type, ...] = tuple(tp)
+            x = type.__new__(mcs, what, tp, cls_dict)
+            return x
+        else:
+            raise TypeError('enhanced_type() takes 1 or 3 arguments')
+
+    def __init__(cls, *args, **kwargs):
+        pass
+
+    def __add__(self, other):
+        assert isinstance(other, type)
+        assert type(self) == type(other)
+        new_dict = {**dict(self.__dict__), **dict(other.__dict__)}
+        new_bases = list(self.__bases__)
+        new_bases.extend(other.__bases__)
+        new_bases = tuple(set(new_bases))
+        new_name = self.__qualname__ + "___" + other.__qualname__
+        return type(self).__new__(type(self), new_name, new_bases, new_dict)
+
+
+# noinspection PyRedeclaration,PyUnresolvedReferences,PyAttributeOutsideInit,PyPep8Naming,SpellCheckingInspection
+class enhanced_object(object):
+    def __new__(cls, *args, **kwargs):
+        self = object.__new__(cls)
+        self._private_initialized = False
+        self._private_preInitialized = False
+        self._private_deleted = False
+        self.deleted = False
+        cls.onPreInit(self, *args, **kwargs)
+        self._private_preInitialized = True
+        return self
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.onInit(*args, **kwargs)
+        self._private_initialized = True
+
+    def __hash__(self) -> int:
+        return hash(json.dumps(copy.deepcopy(self.__dict__), sort_keys=True))
+
+    def __eq__(self, other: object) -> bool:
+        if enhanced_object in type(other).__mro__:
+            return hash(self) == hash(other)
+        else:
+            return False
+
+    def __repr__(self) -> str:
+        if self._private_initialized:
+            return "<" + str(self.__class__).replace("<class '", "").replace("'>", "") + ' enhanced_object at 0x' + (
+                    "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
+                                                                                                      "").upper()) + ">"
+        else:
+            return "<" + str(self.__class__).replace("<class '", "").replace("'>",
+                                                                             "") + ' enhanced_object(uninitialized) at 0x' + (
+                           "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
+                                                                                                             "").upper()) + ">"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def shallowCopy(self):
+        """Shallow copy the object"""
+        return copy.copy(self)
+
+    def deepCopy(self):
+        """Deep copy the object"""
+        return copy.deepcopy(self)
+
+    def equals(self, other: object) -> bool:
+        """Checks if an object is equal to the other."""
+        if enhanced_object in type(other).__mro__:
+            return hash(self) == hash(other)
+        else:
+            return False
+
+    def toString(self) -> str:
+        """Stringifies the object."""
+        return self.__str__()
+
+    @classmethod
+    def getInheritances(cls) -> tuple:
+        """Returns the inheritances of the object, the last, being builtins.object"""
+        return cls.__mro__
+
+    def __ne__(self, other) -> bool:
+        return not self.__eq__(other)
+
+    @classmethod
+    def headlessNew(cls, *args, **kwargs):
+        """Returns an uninitialized instance of this class."""
+        return cls.__new__(cls, *args, **kwargs)
+
+    def onPreInit(self, *args, **kwargs) -> None:
+        pass
+
+    def onInit(self, *args, **kwargs) -> None:
+        pass
+
+    @classmethod
+    def new(cls, *args, **kwargs):
+        """Returns an initialized instance of this class."""
+        obj = cls.__new__(*args, **kwargs)
+        if isinstance(obj, cls):
+            obj.init(*args, **kwargs)
+        return obj
+
+    def init(self, *args, **kwargs) -> None:
+        """Initializes the object, if its already initialized, throws a Warning"""
+        if not self._private_initialized:
+            self.__init__(*args, **kwargs)
+        else:
+            raise AlreadyInitializedWarning
+
+    def ondelete(self, deletedAlready=False) -> None:
+        pass
+
+    def ongcdelete(self) -> None:
+        pass
+
+    def delete(self, force=False) -> int:
+        if not self._private_deleted:
+            self.ondelete()
+        ref = gc.get_referrers(self)
+        immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
+        for i in ref:
+            if not inspect.isframe(i):
+                if type(i) in immutables:
+                    ty = type(i)
+                    f = list(i)
+                    f.remove(self)
+                    f = ty(f)
+                    for j in gc.get_referrers(i):
+                        update_obj(j, i, f)
+                else:
+                    if type(i) == dict:
+                        if '__holdDestroyedObjects__' in i.keys():
+                            if i['__holdDestroyedObjects__']:
+                                pass
+                            else:
+                                del i[i.index(self)]
+                        else:
+                            del i[i.index(self)]
+                    elif type(i) == list:
+                        i.remove(self)
+            else:
+                pass
+        self._private_deleted = True
+        self.deleted = True
+        if force:
+            self.forcedel()
+            return -1
+        return sys.getrefcount(self) - 2
+
+    def hash(self) -> int:
+        """Returns object's hash."""
+        return hash(self)
+
+    def getReferences(self) -> list:
+        """Gets the references of the object."""
+        return gc.get_referrers(self)
+
+    def __del__(self) -> None:
+        if not self._private_deleted:
+            self.ondelete(True)
+            self._private_deleted = True
+            self.deleted = True
+        self.ongcdelete()
+
+    def getActiveReferencesCount(self) -> int:
+        """Returns active references"""
+        e = self.getReferences()
+        for i in e:
+            if inspect.isframe(i):
+                e.remove(i)
+        return len(e)
+
+    def getReferenceCount(self) -> Tuple[int, int]:
+        """Returns reference count from the sys module.
+        0th position in tuple is total references
+        1st position in tuple is active references"""
+        return sys.getrefcount(self) - 3, self.getActiveReferencesCount()
+
+    def getWeakReferenceCount(self) -> int:
+        """Returns weak reference count from the sys module."""
+        return weakref.getweakrefcount(self)
+
+    def getWeakReferences(self) -> list:
+        """Gets the weak references of the object."""
+        return weakref.getweakrefs(self)
+
+    def getWeakRef(self) -> weakref.ReferenceType:
+        """Returns a weak reference of the object."""
+        return weakref.ref(self)
+
+    def inc_ref(self) -> None:
+        """Tells the system that another reference of this object has been made."""
+        ctypes.pythonapi.Py_IncRef(ctypes.py_object(self))
+
+    def dec_ref(self) -> None:
+        """Tells the system that a reference of this object has been deleted.\n
+        When there are no active references of this object, this object will be deallocated.\n
+        After it has been deallocated, ANY interactions with this deleted object will CRASH python."""
+        ctypes.pythonapi.Py_DecRef(ctypes.py_object(self))
+
+    def forcedel(self) -> None:
+        """This function is highly unstable and crashes python all the time. Its recommended to use the normal delete(True) instead."""
+        e = ctypes.py_object(self)
+        for _ in range(self.getReferenceCount()[0]):
+            pythonapi.Py_DecRef(e)
+
+    # noinspection PyUnusedLocal
+    def __deepcopy__(self, memodict=None):
+        if memodict is None:
+            memodict = {}
+        return self.__biggerdeepcopy__(self)
+
+    @classmethod
+    def __biggerdeepcopy__(cls, self):
+        x = super().__new__(cls)
+        x.__dict__ = dict(((key, copy.deepcopy(value)) for key, value in self.__dict__))
+        return x
+
+
+enhanced_type.enhance(enhanced_object)
 dict_keys = type(dict().keys())
 dict_values = type(dict().values())
 function = FunctionType
 module = ModuleType
 IpAddress = Tuple[str, int]
 dict_items = type(dict().items())
+NoneType = type(None)
 
 
 # noinspection SpellCheckingInspection
@@ -131,6 +396,7 @@ class CString:
             return ch
 
 
+@enhanced_type.enhance
 class CacherMap:
     def __init__(self) -> None:
         self.map = {}
@@ -149,6 +415,7 @@ class CacherMap:
 
 
 # noinspection PyNoneFunctionAssignment
+@enhanced_type.enhance
 class Cacher:
     def __init__(self, **kwargs):
         self.cached = CacherMap()
@@ -280,6 +547,7 @@ class Fraction:
 
 
 # noinspection PyRedeclaration,SpellCheckingInspection
+@enhanced_type.enhance
 class Fraction:
     def __init__(self, n, div) -> None:
         self.n = n
@@ -432,15 +700,6 @@ def waituntil(cond: str, local_vars=None, interval: int = 0.01):
         time.sleep(interval)
 
 
-@forbiddenfruit.curses(dict, 'index')
-def index_dict(self, value) -> Any:
-    if value in self.values():
-        return list(self.keys())[list(self.values()).index(value)]
-    else:
-
-        raise IndexError("Key with value " + str(value) + " does not exist.")
-
-
 @forbiddenfruit.curses(dict, 'hash')
 def hash_dict(self) -> int:
     return hash(json.dumps(copy.deepcopy(self), sort_keys=True))
@@ -498,20 +757,6 @@ def partial_delete(self, log=False) -> int:
     return sys.getrefcount(self) - 2
 
 
-def update_obj(obj, old, new):
-    immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
-    if type(obj) in immutables:
-        ty = type(obj)
-        f = list(obj)
-        f[f.index(old)] = new
-        f = ty(f)
-        for j in gc.get_referrers(obj):
-            update_obj(j, obj, f)
-    else:
-        if type(obj) == dict or type(obj) == list:
-            obj[obj.index(old)] = new
-
-
 # noinspection PyBroadException
 def partial_update_obj(obj, old, new, log=False):
     immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
@@ -539,11 +784,7 @@ def getError():
     return traceback.format_exc()
 
 
-# noinspection PyPep8Naming,SpellCheckingInspection
-class enhanced_object:
-    pass
-
-
+@enhanced_type.enhance
 class AlreadyInitializedWarning(RuntimeWarning):
     ...
 
@@ -577,209 +818,8 @@ class terminalcolors:
         return f"\x1b[{('38' if isfg else '48')};2;{str(r)};{str(g)};{str(b)}m"
 
 
-# noinspection PyRedeclaration,PyUnresolvedReferences,PyAttributeOutsideInit,PyPep8Naming,SpellCheckingInspection
-class enhanced_object(object):
-    def __new__(cls, *args, **kwargs) -> enhanced_object:
-        self = object.__new__(cls)
-        self._private_initialized = False
-        self._private_preInitialized = False
-        self._private_deleted = False
-        self.deleted = False
-        cls.onPreInit(self, *args, **kwargs)
-        self._private_preInitialized = True
-        return self
-
-    def __init__(self, *args, **kwargs) -> None:
-        self.onInit(*args, **kwargs)
-        self._private_initialized = True
-
-    def __hash__(self) -> int:
-        return hash(json.dumps(copy.deepcopy(self.__dict__), sort_keys=True))
-
-    def __eq__(self, other: object) -> bool:
-        if enhanced_object in type(other).__mro__:
-            return hash(self) == hash(other)
-        else:
-            return False
-
-    def __repr__(self) -> str:
-        if self._private_initialized:
-            return "<" + str(self.__class__).replace("<class '", "").replace("'>", "") + ' enhanced_object at 0x' + (
-                    "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
-                                                                                                      "").upper()) + ">"
-        else:
-            return "<" + str(self.__class__).replace("<class '", "").replace("'>",
-                                                                             "") + ' enhanced_object(uninitialized) at 0x' + (
-                           "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
-                                                                                                             "").upper()) + ">"
-
-    def __str__(self) -> str:
-        return self.__repr__()
-
-    def shallowCopy(self) -> enhanced_object:
-        """Shallow copy the object"""
-        return copy.copy(self)
-
-    def deepCopy(self) -> enhanced_object:
-        """Deep copy the object"""
-        return copy.deepcopy(self)
-
-    def equals(self, other: object) -> bool:
-        """Checks if an object is equal to the other."""
-        if enhanced_object in type(other).__mro__:
-            return hash(self) == hash(other)
-        else:
-            return False
-
-    def toString(self) -> str:
-        """Stringifies the object."""
-        return self.__str__()
-
-    @classmethod
-    def getInheritances(cls) -> tuple:
-        """Returns the inheritances of the object, the last, being builtins.object"""
-        return cls.__mro__
-
-    def __ne__(self, other: enhanced_object) -> bool:
-        return not self.__eq__(other)
-
-    @classmethod
-    def headlessNew(cls, *args, **kwargs) -> enhanced_object:
-        """Returns an uninitialized instance of this class."""
-        return cls.__new__(cls, *args, **kwargs)
-
-    def onPreInit(self, *args, **kwargs) -> None:
-        pass
-
-    def onInit(self, *args, **kwargs) -> None:
-        pass
-
-    @classmethod
-    def new(cls, *args, **kwargs) -> enhanced_object:
-        """Returns an initialized instance of this class."""
-        obj = cls.__new__(*args, **kwargs)
-        if isinstance(obj, cls):
-            obj.init(*args, **kwargs)
-        return obj
-
-    def init(self, *args, **kwargs) -> None:
-        """Initializes the object, if its already initialized, throws a Warning"""
-        if not self._private_initialized:
-            self.__init__(*args, **kwargs)
-        else:
-            raise AlreadyInitializedWarning
-
-    def ondelete(self, deletedAlready=False) -> None:
-        pass
-
-    def ongcdelete(self) -> None:
-        pass
-
-    def delete(self, force=False) -> int:
-        if not self._private_deleted:
-            self.ondelete()
-        ref = gc.get_referrers(self)
-        immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
-        for i in ref:
-            if not inspect.isframe(i):
-                if type(i) in immutables:
-                    ty = type(i)
-                    f = list(i)
-                    f.remove(self)
-                    f = ty(f)
-                    for j in gc.get_referrers(i):
-                        update_obj(j, i, f)
-                else:
-                    if type(i) == dict:
-                        if '__holdDestroyedObjects__' in i.keys():
-                            if i['__holdDestroyedObjects__']:
-                                pass
-                            else:
-                                del i[i.index(self)]
-                        else:
-                            del i[i.index(self)]
-                    elif type(i) == list:
-                        i.remove(self)
-            else:
-                pass
-        self._private_deleted = True
-        self.deleted = True
-        if force:
-            self.forcedel()
-            return -1
-        return sys.getrefcount(self) - 2
-
-    def hash(self) -> int:
-        """Returns object's hash."""
-        return hash(self)
-
-    def getReferences(self) -> list:
-        """Gets the references of the object."""
-        return gc.get_referrers(self)
-
-    def __del__(self) -> None:
-        if not self._private_deleted:
-            self.ondelete(True)
-            self._private_deleted = True
-            self.deleted = True
-        self.ongcdelete()
-
-    def getActiveReferencesCount(self) -> int:
-        """Returns active references"""
-        e = self.getReferences()
-        for i in e:
-            if inspect.isframe(i):
-                e.remove(i)
-        return len(e)
-
-    def getReferenceCount(self) -> Tuple[int, int]:
-        """Returns reference count from the sys module.
-        0th position in tuple is total references
-        1st position in tuple is active references"""
-        return sys.getrefcount(self) - 3, self.getActiveReferencesCount()
-
-    def getWeakReferenceCount(self) -> int:
-        """Returns weak reference count from the sys module."""
-        return weakref.getweakrefcount(self)
-
-    def getWeakReferences(self) -> list:
-        """Gets the weak references of the object."""
-        return weakref.getweakrefs(self)
-
-    def getWeakRef(self) -> weakref.ReferenceType:
-        """Returns a weak reference of the object."""
-        return weakref.ref(self)
-
-    def inc_ref(self) -> None:
-        """Tells the system that another reference of this object has been made."""
-        ctypes.pythonapi.Py_IncRef(ctypes.py_object(self))
-
-    def dec_ref(self) -> None:
-        """Tells the system that a reference of this object has been deleted.\n
-        When there are no active references of this object, this object will be deallocated.\n
-        After it has been deallocated, ANY interactions with this deleted object will CRASH python."""
-        ctypes.pythonapi.Py_DecRef(ctypes.py_object(self))
-
-    def forcedel(self) -> None:
-        """This function is highly unstable and crashes python all the time. Its recommended to use the normal delete(True) instead."""
-        e = ctypes.py_object(self)
-        for _ in range(self.getReferenceCount()[0]):
-            pythonapi.Py_DecRef(e)
-
-    # noinspection PyUnusedLocal
-    def __deepcopy__(self, memodict=None):
-        if memodict is None:
-            memodict = {}
-        return self.__biggerdeepcopy__(self)
-
-    @classmethod
-    def __biggerdeepcopy__(cls, self):
-        x = super().__new__(cls)
-        x.__dict__ = dict(((key, copy.deepcopy(value)) for key, value in self.__dict__))
-        return x
-
-
 # noinspection SpellCheckingInspection
+@enhanced_type.enhance
 class AttributableObject(enhanced_object):
     def __init__(self, thedict=None):
         """Makes a new attributable object from the dictionary"""
@@ -792,6 +832,7 @@ class AttributableObject(enhanced_object):
 
 
 # noinspection PyPep8Naming,SpellCheckingInspection
+@enhanced_type.enhance
 class unfrozentuple(enhanced_object):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -860,6 +901,7 @@ def printError():
 
 
 # noinspection SpellCheckingInspection
+@enhanced_type.enhance
 class Shell:
     def __init__(self) -> None:
         self.running = False
@@ -969,12 +1011,6 @@ class Shell:
 
     def exit(self) -> None:
         self.running = False
-
-
-def replace_all(old: object, new: object):
-    e = gc.get_referrers(old)
-    for i in e:
-        update_obj(i, old, new)
 
 
 # noinspection SpellCheckingInspection
@@ -1148,6 +1184,7 @@ def get_obj_from_id(the_id: int) -> object:
 
 
 # noinspection PyPep8Naming
+@enhanced_type.enhance
 class thread(threading.Thread):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=True):
         if name is None:
@@ -1174,6 +1211,7 @@ class thread(threading.Thread):
 
 
 # noinspection PyPep8Naming
+@enhanced_type.enhance
 class run_with_multiprocessing(multiprocessing.Process):
     def __init__(self, group=None, target=None, name=None, args=(), kwargs=None, *, daemon=None):
         if kwargs is None:
@@ -1244,6 +1282,7 @@ def serv_con_to_sock(connection: Tuple[socket.socket, IpAddress]):
 
 
 # noinspection PyAttributeOutsideInit
+@enhanced_type.enhance
 class Socket(enhanced_object):
     """A network socket. You can send anything through it."""
 
@@ -1327,6 +1366,7 @@ class Socket(enhanced_object):
 
 
 # noinspection PyAttributeOutsideInit
+@enhanced_type.enhance
 class ListeningServerSocket(enhanced_object):
     """A listening network socket."""
 
@@ -1362,6 +1402,23 @@ class ListeningServerSocket(enhanced_object):
         for index, i in enumerate(self.connections):
             if i.is_socket_closed:
                 self.connections[index].delete()
+
+
+class UndefinedType:
+    undefined_id = 0
+
+    def __new__(cls):
+        return get_obj_from_id(UndefinedType.undefined_id)
+
+    def __repr__(self):
+        return 'undefined'
+
+
+undefined = object.__new__(UndefinedType)
+forbiddenfruit.patchable_builtin(UndefinedType)['undefined_id'] = id(undefined)
+# noinspection PyTypeChecker
+enhanced_object.inc_ref(undefined)
+importer('builtins').__dict__['undefined'] = undefined
 
 
 class CArgument:
@@ -1461,9 +1518,6 @@ def get_from_choice_with_cond(prompt: str, cond: str, invalid_choice_message: st
     return inp
 
 
-pythonapi = ctypes.pythonapi
-
-
 def rw_curse_modified(klass, attr, value):
     dikt = forbiddenfruit.patchable_builtin(klass)
 
@@ -1510,6 +1564,7 @@ def curse_mod(klass, attr, val):
             pass
 
 
+pythonapi = ctypes.pythonapi
 revert_mod = rw_revert_modified
 
 
@@ -1548,6 +1603,7 @@ def unfreeze_tuple(self):
     replace_all(self, unfrozentuple(list(self)))
 
 
+@enhanced_type.enhance
 class Clock:
     def __init__(self):
         self._private_start = time.time()
@@ -1640,6 +1696,40 @@ def try_delete_dict(self, key: Union[Any, Iterable]):
             pass
 
 
+def hash_self(self):
+    return type(self).__hash__(self)
+
+
+def str_self(self):
+    return type(self).__str__(self)
+
+
+def getattr_obj(o: Union[type, object], key: str, default: Any = undefined):
+    if isinstance(o, type):
+        try:
+            # noinspection PyArgumentList
+            return o.__getattribute__(o, key)
+        except AttributeError:
+            if default is not undefined:
+                return default
+            raise
+    else:
+        try:
+            return o.__getattribute__(key)
+        except AttributeError:
+            if default is not undefined:
+                return default
+            raise
+
+
+def setattr_obj(o: Union[type, object], key: str, val: Any):
+    if isinstance(o, type):
+        # noinspection PyArgumentList
+        o.__setattr__(o, key, val)
+    else:
+        o.__setattr__(key, val)
+
+
 if os.name == 'nt':
     e = os.system("color 07")
     if e == 0:
@@ -1654,85 +1744,16 @@ curse_mod(dict, "__hash__", hash_dict)
 replace_all(hash, hash_obj)
 replace_all(repr, repr_obj)
 replace_all(len, len_obj)
-curse_mod(object, "toString", str_obj)
-curse_mod(type, "toString", str_obj)
-curse_mod(object, "hash", hash_obj)
-curse_mod(type, "hash", hash_obj)
+replace_all(getattr, len_obj)
+replace_all(len, len_obj)
+curse_mod(object, "toString", str_self)
+curse_mod(type, "toString", str_self)
+curse_mod(object, "hash", hash_self)
+curse_mod(type, "hash", hash_self)
 
 
 def get_obj_mem(obj):
     return (ctypes.c_char * sys.getsizeof(obj)).from_address(id(obj))
-
-
-# noinspection PyPep8Naming
-class enhanced_type(type, enhanced_object):
-    @property
-    def __class__(cls=None):
-        return enhanced_type
-
-    @classmethod
-    def enhance(mcs, klass: type) -> type:
-        assert isinstance(klass, type)
-        if type(klass) is not mcs:
-            klass_dict: dict = forbiddenfruit.patchable_builtin(klass)
-            type_enhanced = enhanced_type(klass.__name__, klass.__bases__, copy.copy(klass_dict))
-            klass_dict.clear()
-            tuple(klass_dict.setdefault(key, value) for key, value in dict(type_enhanced.__dict__).items())
-            replace_all(klass, type_enhanced)
-            return type_enhanced
-        return klass
-
-    @staticmethod
-    def apply_metaclass(klass: type) -> type:
-        assert isinstance(klass, type)
-        if '__metaclass__' in klass.__dict__:
-            klass_dict: dict = forbiddenfruit.patchable_builtin(klass)
-            type_enhanced = enhanced_type(klass.__name__, klass.__bases__, copy.copy(klass_dict))
-            klass_dict.clear()
-            tuple(klass_dict.setdefault(key, value) for key, value in dict(type_enhanced.__dict__).items())
-            replace_all(klass, type_enhanced)
-            return type_enhanced
-        else:
-            return klass
-
-    def __new__(mcs, what: Union[Any, str], cls_bases: Tuple[type] = None, cls_dict: Dict[str, Any] = None):
-        """
-        enhanced_type(object_or_name, bases, dict)
-        enhanced_type(object) -> the object's enhanced_type
-        enhanced_type(name, bases, dict) -> a new enhanced_type
-        """
-        if cls_bases == cls_dict is None:
-            return type(what)
-        elif cls_dict is not None:
-            tp: List[type] = list(copy.copy(cls_bases))
-            if enhanced_object not in tp:
-                tp.append(enhanced_object)
-            if object in tp:
-                tp.remove(object)
-            tp: tuple[type, ...] = tuple(tp)
-            x = type.__new__(mcs, what, tp, cls_dict)
-            mcs.apply_metaclass(x)
-            return x
-        else:
-            raise TypeError('enhanced_type() takes 1 or 3 arguments')
-
-    def __add__(self, other):
-        assert isinstance(other, type)
-        assert type(self) == type(other)
-        new_dict = {**dict(self.__dict__), **dict(other.__dict__)}
-        new_bases = list(self.__bases__)
-        new_bases.extend(other.__bases__)
-        new_bases = tuple(set(new_bases))
-        new_name = self.__name__ + "___" + other.__name__
-        return type(self).__new__(type(self), new_name, new_bases, new_dict)
-
-
-# noinspection SpellCheckingInspection
-def enhanced_typehash(self):
-    return hash(json.dumps(dict(self), sort_keys=True))
-
-
-curse_mod(enhanced_type, '__hash__', enhanced_typehash)
 
 
 # noinspection PyPep8Naming,SpellCheckingInspection
@@ -1795,3 +1816,38 @@ class new_terminalcolors:
         else:
             bg_col = bg + 16
         return cls.reset + (cls.bold * (text_type % 2) + cls.underline * ((text_type >> 1) % 2) + cls.inverse * ((text_type >> 2) % 2)) + getattr(cls, x[bg_col]) + getattr(cls, x[fg_col])
+
+
+def wrapper_maker(func: Callable, func_arg: Callable = None):
+    def wrapper(*args, **kwargs):
+        local_vars = {}
+
+        def inner(to_be_wrapped):
+            return func(local_vars, to_be_wrapped)
+
+        if len(kwargs) > 0 or len(args) > 1:
+            local_vars = {'args': args, 'kwargs': kwargs}
+            return inner
+        elif func_arg is None:
+            return func(args[0])
+        else:
+            local_vars = {**local_vars, **func_arg(local_vars, *args, **kwargs)}
+            return inner
+
+    return wrapper
+
+
+def using_metaclass(x, y=None):
+    local_vars: Union[None, Dict[str, Union[Tuple, Dict[str, Any]]]] = None
+    if y is None:
+        klass: type = x
+    else:
+        local_vars = x
+        klass: type = y
+    if local_vars is None:
+        return klass.__metaclass__.__new__(klass.__metaclass__, *enhanced_type.splittype(klass))
+    else:
+        return local_vars['kwargs']['metaclass'].__new__(local_vars['kwargs']['metaclass'], *enhanced_type.splittype(klass))
+
+
+using_metaclass = wrapper_maker(using_metaclass)
