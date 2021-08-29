@@ -44,3 +44,5 @@ Features:
 > `enhanced_object` class meant to be inherited
 
 > `enhanced_type` class meant to be used as a type
+
+> `undefined` type added to builtins
