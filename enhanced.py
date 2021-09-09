@@ -1,14 +1,14 @@
 # enhanced - Adds new features to python
 # new_terminalcolors made by GamingBox#8187
 
-# noinspection PyUnresolvedReferences
-import builtins
+
+import builtins as __builtins__
 import copy
 import json
 import traceback
-# noinspection PyUnresolvedReferences
-from types import FunctionType, MethodType, ModuleType
-from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized, Dict, Callable
+from functools import wraps
+from types import FunctionType, ModuleType
+from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized, Dict, Callable, Type
 import forbiddenfruit
 import gc
 import time
@@ -22,7 +22,6 @@ import socket
 import pickle
 import os
 from time import sleep as wait_seconds
-from builtins import __import__ as importer
 
 
 @forbiddenfruit.curses(dict, 'index')
@@ -35,12 +34,14 @@ def index_dict(self, value) -> Any:
 
 
 def replace_all(old: object, new: object):
+    """Replace all references of old with new"""
     e = gc.get_referrers(old)
     for i in e:
         update_obj(i, old, new)
 
 
 def update_obj(obj, old, new):
+    """Update old with new in obj"""
     immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
     if type(obj) in immutables:
         ty = type(obj)
@@ -56,10 +57,12 @@ def update_obj(obj, old, new):
 
 # noinspection PyUnusedLocal
 def pass_func(*args, **kwargs):
+    """Doesnt care about arguments, always returns None"""
     pass
 
 
 def always_return(var: Any):
+    """Always returns variable. Returns function which always returns that variable and does not care about arguments."""
     the_var = var
 
     # noinspection PyUnusedLocal
@@ -71,6 +74,9 @@ def always_return(var: Any):
 
 # noinspection PyPep8Naming,PyMissingConstructor
 class enhanced_type(type):
+    """Enhanced type.
+    With this, you could add types together and make a hybrid from them.
+    If doesnt import enhanced_object, it does it automatically"""
     @classmethod
     def enhance(mcs, klass: type) -> type:
         assert isinstance(klass, type)
@@ -123,12 +129,12 @@ class enhanced_type(type):
 
 # noinspection PyRedeclaration,PyUnresolvedReferences,PyAttributeOutsideInit,PyPep8Naming,SpellCheckingInspection
 class enhanced_object(object):
+    """Enhanced object."""
     def __new__(cls, *args, **kwargs):
         self = object.__new__(cls)
         self._private_initialized = False
         self._private_preInitialized = False
         self._private_deleted = False
-        self.deleted = False
         cls.onPreInit(self, *args, **kwargs)
         self._private_preInitialized = True
         return self
@@ -247,7 +253,6 @@ class enhanced_object(object):
             else:
                 pass
         self._private_deleted = True
-        self.deleted = True
         if force:
             self.forcedel()
             return -1
@@ -265,7 +270,6 @@ class enhanced_object(object):
         if not self._private_deleted:
             self.ondelete(True)
             self._private_deleted = True
-            self.deleted = True
         self.ongcdelete()
 
     def getActiveReferencesCount(self) -> int:
@@ -417,6 +421,8 @@ class CacherMap:
 # noinspection PyNoneFunctionAssignment
 @enhanced_type.enhance
 class Cacher:
+    """Cacher object
+    .flush() to clear the cache."""
     def __init__(self, **kwargs):
         self.cached = CacherMap()
         self.function = pass_func
@@ -693,7 +699,8 @@ class Fraction:
 
 
 # noinspection SpellCheckingInspection
-def waituntil(cond: str, local_vars=None, interval: int = 0.01):
+def waituntil(cond: str, local_vars=None, interval: Union[float, int] = 0.01):
+    """Waits until condition is true."""
     if local_vars is None:
         local_vars = {}
     while not eval(cond, local_vars):
@@ -714,6 +721,7 @@ def force_deallocate(obj: object) -> None:
 
 # noinspection PyBroadException
 def partial_delete(self, log=False) -> int:
+    """Attempts to delete all references of object."""
     ref = gc.get_referrers(self)
     immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
     for i in ref:
@@ -759,6 +767,7 @@ def partial_delete(self, log=False) -> int:
 
 # noinspection PyBroadException
 def partial_update_obj(obj, old, new, log=False):
+    """Attempts to update old object to new"""
     immutables = (tuple, str, type(dict().keys()), type(dict().values()), set, frozenset)
     if type(obj) in immutables:
         try:
@@ -781,6 +790,7 @@ def partial_update_obj(obj, old, new, log=False):
 
 
 def getError():
+    """Gets traceback via traceback module."""
     return traceback.format_exc()
 
 
@@ -818,9 +828,13 @@ class terminalcolors:
         return f"\x1b[{('38' if isfg else '48')};2;{str(r)};{str(g)};{str(b)}m"
 
 
+class BaseAttributableObject:
+    pass
+
+
 # noinspection SpellCheckingInspection
 @enhanced_type.enhance
-class AttributableObject(enhanced_object):
+class AttributableObject(enhanced_object,BaseAttributableObject):
     def __init__(self, thedict=None):
         """Makes a new attributable object from the dictionary"""
         super().__init__()
@@ -834,15 +848,27 @@ class AttributableObject(enhanced_object):
 # noinspection PyPep8Naming,SpellCheckingInspection
 @enhanced_type.enhance
 class unfrozentuple(enhanced_object):
+    """Unfrozen tuple
+    A tuple which allows item assignment
+    > tuple.unfreeze()
+    Makes all references of tuple object unfrozentuple
+
+    > unfrozentuple.freeze()
+    Makes all references of unfrozentuple object tuple"""
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        if len(args) == 1:
-            self.thetuple: Tuple[Any] = tuple(copy.copy(args[0]))
+        if len(args) == 0:
+            self.thetuple: Tuple[Any, ...] = ()
+        elif len(args) == 1:
+            self.thetuple: Tuple[Any, ...] = tuple(copy.copy(args[0]))
         else:
-            self.thetuple: Tuple[Any] = tuple(args)
+            self.thetuple: Tuple[Any, ...] = tuple(args)
 
     def __repr__(self) -> str:
-        return "unfrozentuple" + repr(self.thetuple)
+        if len(self.thetuple) > 1 or len(self.thetuple) == 0:
+            return "unfrozentuple" + repr(self.thetuple)
+        else:
+            return "unfrozentuple(" + repr(self.thetuple) + ")"
 
     def __len__(self) -> int:
         return len(self.thetuple)
@@ -894,6 +920,12 @@ class unfrozentuple(enhanced_object):
     def index(self, val: Any) -> int:
         return self.thetuple.index(val)
 
+    def resize(self, size: int):
+        assert size >= len(self.thetuple)
+        f = list(self.thetuple)
+        f.extend([null] * (size - len(f)))
+        self.thetuple = tuple(f)
+
 
 def printError():
     print(terminalcolors.red + traceback.format_exc() + terminalcolors.reset)
@@ -903,6 +935,7 @@ def printError():
 # noinspection SpellCheckingInspection
 @enhanced_type.enhance
 class Shell:
+    """EXPERIMENTAL"""
     def __init__(self) -> None:
         self.running = False
         self.locals = {'self': self, 'exit': self.exit}
@@ -1050,6 +1083,13 @@ def print_rainbow(string: str, the_type: int = 0, end: str = "\n") -> None:
 
 def colorify_high(string: str, fg_color: Tuple[int, int, int], the_type: int = 0,
                   bg_color: Tuple[int, int, int] = None):
+    """Colors string with 24-bit RGB values,
+    > colorify_high(string,(fg_r,fg_g,fg_b)[,type,(bg_r,bg_g,bg_r)])
+
+    where type is a number
+    0b00
+    0th bit is bold
+    1st bit is underline"""
     assert len(fg_color) == 3
     if bg_color is None:
         return terminalcolors.types[the_type % 4] + terminalcolors.rgbcolor(*fg_color) + string + terminalcolors.reset
@@ -1119,6 +1159,7 @@ def get_time():
 
 
 def get_dir(obj: object, no_reserved: bool = False) -> list:
+    """Returns directory of object as List[Tuple[key: str, val: Any]]"""
     the_dir = dir(obj)
     e = []
     for i in the_dir:
@@ -1129,6 +1170,7 @@ def get_dir(obj: object, no_reserved: bool = False) -> list:
 
 
 def get_dir_wodf(obj: object, no_reserved: bool = False) -> list:
+    """Returns directory of object with the object's dir function as List[Tuple[key: str, val: Any]]"""
     the_dir = dir(obj)
     e = []
     for i in the_dir:
@@ -1179,7 +1221,7 @@ def get_dir_str_wodf(obj: object, no_reserved: bool = False) -> str:
 
 
 def get_obj_from_id(the_id: int) -> object:
-    """Recommended to use instead of this a weak-reference."""
+    """Recommended to use a weak-reference instead of this."""
     return ctypes.cast(the_id, ctypes.py_object).value
 
 
@@ -1405,6 +1447,7 @@ class ListeningServerSocket(enhanced_object):
 
 
 class UndefinedType:
+    """Type of undefined."""
     undefined_id = 0
 
     def __new__(cls):
@@ -1413,12 +1456,46 @@ class UndefinedType:
     def __repr__(self):
         return 'undefined'
 
+    def __bool__(self):
+        return False
+
+    def __int__(self):
+        return 0
+
+    def __index__(self):
+        return 0
+
+
+class NullType:
+    """Type of null."""
+    null_id = 0
+
+    def __new__(cls):
+        return get_obj_from_id(NullType.null_id)
+
+    def __repr__(self):
+        return 'null'
+
+    def __bool__(self):
+        return False
+
+    def __int__(self):
+        return 0
+
+    def __index__(self):
+        return 0
+
 
 undefined = object.__new__(UndefinedType)
-forbiddenfruit.patchable_builtin(UndefinedType)['undefined_id'] = id(undefined)
+UndefinedType.undefined_id = id(undefined)
 # noinspection PyTypeChecker
 enhanced_object.inc_ref(undefined)
-importer('builtins').__dict__['undefined'] = undefined
+__builtins__.__dict__['undefined'] = undefined
+null = object.__new__(NullType)
+NullType.null_id = id(null)
+# noinspection PyTypeChecker
+enhanced_object.inc_ref(null)
+__builtins__.__dict__['null'] = null
 
 
 class CArgument:
@@ -1568,33 +1645,41 @@ pythonapi = ctypes.pythonapi
 revert_mod = rw_revert_modified
 
 
-def hash_obj(obj: object):
+def hash_obj(obj: Union[type, object]):
     if obj.__hash__ is not None:
+        if isinstance(obj, type):
+            return type(obj).__hash__(obj)
         return obj.__hash__()
     else:
         raise TypeError("unhashable type: '" + type(obj).__name__ + "'")
 
 
-def repr_obj(obj: object):
+def repr_obj(obj: Union[object, type]):
+    if isinstance(obj, type):
+        # noinspection PyArgumentList
+        return type(obj).__repr__(obj)
     return obj.__repr__()
 
 
 def str_obj(self):
     if isinstance(self, str):
         return type("")(self)
-    if type in type(self).__mro__:
-        return self.__str__(self)
+    if isinstance(self, type):
+        return type(self).__str__(self)
     return self.__str__()
 
 
-def len_obj(self: Sized):
+def len_obj(self: Union[Type[Sized], Sized]):
+    if isinstance(self, type):
+        return type(self).__len__(self)
     return self.__len__()
 
 
 def run_func_with_thread(func, group=None, name=None, *, daemon=True):
+    """Wrapper for functions. Runs function with a thread and returns thread"""
+    @wraps(func)
     def wrapper(*args, **kwargs):
         return run_with_thread(group=group, target=func, name=name, args=args, kwargs=kwargs, daemon=daemon)
-
     return wrapper
 
 
@@ -1704,20 +1789,20 @@ def str_self(self):
     return type(self).__str__(self)
 
 
-def getattr_obj(o: Union[type, object], key: str, default: Any = undefined):
+def getattr_obj(o: Union[type, object], key: str, default: Any = null):
     if isinstance(o, type):
         try:
             # noinspection PyArgumentList
-            return o.__getattribute__(o, key)
+            return type(o).__getattribute__(o, key)
         except AttributeError:
-            if default is not undefined:
+            if default is not null:
                 return default
             raise
     else:
         try:
             return o.__getattribute__(key)
         except AttributeError:
-            if default is not undefined:
+            if default is not null:
                 return default
             raise
 
@@ -1744,8 +1829,8 @@ curse_mod(dict, "__hash__", hash_dict)
 replace_all(hash, hash_obj)
 replace_all(repr, repr_obj)
 replace_all(len, len_obj)
-replace_all(getattr, len_obj)
-replace_all(len, len_obj)
+# replace_all(getattr, getattr_obj)
+# replace_all(setattr, setattr_obj)
 curse_mod(object, "toString", str_self)
 curse_mod(type, "toString", str_self)
 curse_mod(object, "hash", hash_self)
@@ -1754,6 +1839,20 @@ curse_mod(type, "hash", hash_self)
 
 def get_obj_mem(obj):
     return (ctypes.c_char * sys.getsizeof(obj)).from_address(id(obj))
+
+
+def memory_object(adr, len):
+    return (ctypes.c_char * len).from_address(adr)
+
+
+def change_mem_size(obj: object, len: int):
+    obj_mem = get_obj_mem(obj)
+    assert __builtins__.len(obj_mem[:]) <= len
+    pythonapi.PyObject_Realloc.restype = ctypes.POINTER(ctypes.c_void_p)
+    pointer_to_new_obj: ctypes.POINTER(ctypes.c_void_p) = pythonapi.PyObject_Realloc(ctypes.pointer(ctypes.py_object(obj)))
+    new_mem = memory_object(ctypes.addressof(pointer_to_new_obj), len)
+    new_mem[:] = obj_mem[:] + (b'\x00' * (len - __builtins__.len(obj_mem[:])))
+    return ctypes.py_object.from_address(ctypes.addressof(pointer_to_new_obj)).value
 
 
 # noinspection PyPep8Naming,SpellCheckingInspection
@@ -1819,6 +1918,13 @@ class new_terminalcolors:
 
 
 def wrapper_maker(func: Callable, func_arg: Callable = None):
+    """Wrapper maker.
+    func -> Function to be ran with/without local variables
+    If it does have local variables, gives 2 arguments, first being the local variables, 2nd being the object to be wrapped.
+    If it does not however, it just gives 1 argument of the object to be wrapped
+
+    func_arg -> Function to be ran to make the local_vars
+    Returns local_vars to be used with func"""
     def wrapper(*args, **kwargs):
         local_vars = {}
 
@@ -1831,23 +1937,101 @@ def wrapper_maker(func: Callable, func_arg: Callable = None):
         elif func_arg is None:
             return func(args[0])
         else:
-            local_vars = {**local_vars, **func_arg(local_vars, *args, **kwargs)}
+            local_vars = func_arg(*args, **kwargs)
             return inner
 
     return wrapper
 
 
-def using_metaclass(x, y=None):
-    local_vars: Union[None, Dict[str, Union[Tuple, Dict[str, Any]]]] = None
-    if y is None:
-        klass: type = x
-    else:
-        local_vars = x
-        klass: type = y
-    if local_vars is None:
-        return klass.__metaclass__.__new__(klass.__metaclass__, *enhanced_type.splittype(klass))
-    else:
-        return local_vars['kwargs']['metaclass'].__new__(local_vars['kwargs']['metaclass'], *enhanced_type.splittype(klass))
+class StructureType(enhanced_type):
+    def __repr__(self):
+        return "<structure '" + type.__repr__(self).replace("<class '", "").replace("'>", "") + "'>"
+
+    def __new__(mcs, what: Union[Any, str], cls_bases: Tuple[type] = None, cls_dict: Dict[str, Any] = None):
+        """
+        StructureType(object_or_name, bases, dict)
+        StructureType(object) -> the object's StructureType
+        StructureType(name, bas es, dict) -> a new StructureType
+        """
+        if cls_bases == cls_dict is None:
+            return type(what)
+        elif cls_dict is not None:
+            tp: List[type] = list(copy.copy(cls_bases))
+            if object in tp:
+                tp.remove(object)
+            tp: tuple[type, ...] = tuple(tp)
+            x = type.__new__(mcs, what, tp, cls_dict)
+            return x
+        else:
+            raise TypeError('StructureType() takes 1 or 3 arguments')
 
 
-using_metaclass = wrapper_maker(using_metaclass)
+def structure(klass):
+    """Makes class a structure
+    Note: Please make sure you are inheriting from any class except of 'object'
+    If you do not intend to inherit on any, inherit from an empty class like 'BaseAttributableObject'"""
+    klass_name, klass_bases, klass_dict = StructureType.splittype(klass)
+    klass_dict = klass_dict.copy()
+    klass_bases = list(klass_bases)
+    if object in klass_bases:
+        klass_bases.remove(object)
+    if BaseAttributableObject not in klass_bases:
+        klass_bases.append(BaseAttributableObject)
+    klass = type.__new__(type, klass_name, tuple(klass_bases), klass_dict)
+    klass_name, klass_bases, klass_dict = StructureType.splittype(klass)
+    klass_dict = klass_dict.copy()
+    klass_dict.setdefault('_struct_',[])
+    klass_dict.setdefault('__init__', object.__init__)
+    klass_dict.setdefault('__getattribute__', object.__getattribute__)
+    klass_dict.setdefault('__setattr__', object.__setattr__)
+
+    def new_dir(self):
+        z = []
+        is_special = (lambda x: x.startswith('__') and x.endswith('__'))
+        # noinspection PyArgumentList
+        z.extend(filter(is_special, super(type(self), self).__dir__()))
+        # noinspection PyProtectedMember
+        z.extend(type(self)._struct_)
+        return z
+
+    is_special = (lambda x: x.startswith('__') and x.endswith('__'))
+    is_not_special = (lambda x: not (x.startswith('__') and x.endswith('__')))
+    klass_dict['__dir__'] = new_dir
+    klass_dict['_def_struct_'] = list(filter(is_not_special, klass_dict))
+    klass_dict['_def_struct_'].remove("_struct_")
+    klass_dict['_def_struct_'] = frozenset(klass_dict['_def_struct_'])
+    klass_dict['_struct_'] = frozenset(klass_dict['_struct_']).union(klass_dict['_def_struct_'])
+    klass_dict['_not_def_struct_'] = klass_dict['_struct_'] - klass_dict['_def_struct_']
+    klass_dict['__former_init__'] = klass_dict['__init__']
+    klass_dict['__former_getattribute__'] = klass_dict['__getattribute__']
+    klass_dict['__former_setattr__'] = klass_dict['__setattr__']
+
+    def new_init(self):
+        tuple((type(self).__setattr__(self, x, undefined) for x in self._not_def_struct_))
+        type(self).__former_init__(self)
+
+    def new_getattr(self, key: str):
+        # noinspection PyProtectedMember
+        if key.startswith('_private_') or (key.startswith('__') and key.endswith('__')) or key in ('_struct_', '_def_struct_', '_not_def_struct_') or key in type(self)._struct_:
+            return object.__getattribute__(self, key)
+        raise AttributeError(f"'{type(self).__qualname__}' object has no attribute '{key}'")
+
+    def new_setattr(self, key: str, val: Any):
+        if key == "_struct_":
+            raise TypeError("_struct_ assignment not supported to structure type classes")
+        object.__setattr__(self, key, val)
+
+    def new_repr(self):
+        return "<" + repr(type(self)).replace("<structure '", "").replace("'>", "") + " structure object at 0x" + (
+                    "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
+                                                                                                      "").upper()) + ">"
+
+    klass_dict['__init__'] = new_init
+    klass_dict['__getattribute__'] = new_getattr
+    klass_dict['__setattr__'] = new_setattr
+    klass_dict['__repr__'] = new_repr
+    new_klass = StructureType.__new__(StructureType, klass_name, klass_bases, klass_dict)
+    return new_klass
+
+
+structure = wrapper_maker(structure)
