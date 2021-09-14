@@ -6,6 +6,8 @@ import builtins as __builtins__
 import copy
 import json
 import traceback
+import typing
+from decimal import Decimal
 from functools import wraps
 from types import FunctionType, ModuleType
 from typing import Any, List, Tuple, Iterator, Union, Iterable, Sized, Dict, Callable, Type
@@ -77,6 +79,7 @@ class enhanced_type(type):
     """Enhanced type.
     With this, you could add types together and make a hybrid from them.
     If doesnt import enhanced_object, it does it automatically"""
+
     @classmethod
     def enhance(mcs, klass: type) -> type:
         assert isinstance(klass, type)
@@ -130,6 +133,7 @@ class enhanced_type(type):
 # noinspection PyRedeclaration,PyUnresolvedReferences,PyAttributeOutsideInit,PyPep8Naming,SpellCheckingInspection
 class enhanced_object(object):
     """Enhanced object."""
+
     def __new__(cls, *args, **kwargs):
         self = object.__new__(cls)
         self._private_initialized = False
@@ -423,6 +427,7 @@ class CacherMap:
 class Cacher:
     """Cacher object
     .flush() to clear the cache."""
+
     def __init__(self, **kwargs):
         self.cached = CacherMap()
         self.function = pass_func
@@ -834,7 +839,7 @@ class BaseAttributableObject:
 
 # noinspection SpellCheckingInspection
 @enhanced_type.enhance
-class AttributableObject(enhanced_object,BaseAttributableObject):
+class AttributableObject(enhanced_object, BaseAttributableObject):
     def __init__(self, thedict=None):
         """Makes a new attributable object from the dictionary"""
         super().__init__()
@@ -855,6 +860,7 @@ class unfrozentuple(enhanced_object):
 
     > unfrozentuple.freeze()
     Makes all references of unfrozentuple object tuple"""
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         if len(args) == 0:
@@ -936,6 +942,7 @@ def printError():
 @enhanced_type.enhance
 class Shell:
     """EXPERIMENTAL"""
+
     def __init__(self) -> None:
         self.running = False
         self.locals = {'self': self, 'exit': self.exit}
@@ -969,20 +976,23 @@ class Shell:
                 return e
         else:
             try:
+                if self.__isolated:
+                    print(repr(eval(c, {**self.isolglobals, "globals": always_return(self.isolglobals), "locals": always_return(self.locals)}, self.locals)))
+                else:
+                    print(repr(eval(c, self.globals, self.locals)))
+            except SyntaxError:
                 try:
-                    if self.__isolated:
-                        print(eval(c, {**self.isolglobals, "globals": always_return(self.isolglobals)}, self.locals))
-                    else:
-                        print(eval(c, self.globals, self.locals))
-                except SyntaxError:
                     if self.__isolated:
                         exec(c, {**self.isolglobals, "globals": always_return(self.isolglobals)}, self.locals)
                     else:
                         exec(c, self.globals, self.locals)
-                return None
+                except Exception as e:
+                    printError()
+                    return e
             except Exception as e:
                 printError()
                 return e
+            return None
 
     def runc(self, c) -> Union[None, Exception, ValueError]:
         """Runs command"""
@@ -991,10 +1001,8 @@ class Shell:
                 self.__isolexitstage = 1
             else:
                 try:
-                    c = c.replace("locals()", str(self.locals))
                     if self.__isolated:
-                        c = c.replace("globals()", str(self.isolglobals))
-                        exec(c, self.isolglobals, self.locals)
+                        exec(c, {**self.isolglobals, "globals": always_return(self.isolglobals), "locals": always_return(self.locals)}, self.locals)
                     else:
                         exec(c, self.globals, self.locals)
                     return None
@@ -1580,7 +1588,8 @@ def exec_nrCFUNC(func: ctypes.CFUNCTYPE, *args: Any):
     return func(*new_args)
 
 
-def get_from_choice_with_cond(prompt: str, cond: str, invalid_choice_message: str = "Invalid choice!", global_vars: dict = None, local_vars: dict = None) -> str:
+def get_from_choice_with_cond(prompt: str, cond: str, invalid_choice_message: str = "Invalid choice!",
+                              global_vars: dict = None, local_vars: dict = None) -> str:
     if local_vars is None:
         local_vars = {}
     if global_vars is None:
@@ -1677,9 +1686,11 @@ def len_obj(self: Union[Type[Sized], Sized]):
 
 def run_func_with_thread(func, group=None, name=None, *, daemon=True):
     """Wrapper for functions. Runs function with a thread and returns thread"""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         return run_with_thread(group=group, target=func, name=name, args=args, kwargs=kwargs, daemon=daemon)
+
     return wrapper
 
 
@@ -1849,7 +1860,8 @@ def change_mem_size(obj: object, len: int):
     obj_mem = get_obj_mem(obj)
     assert __builtins__.len(obj_mem[:]) <= len
     pythonapi.PyObject_Realloc.restype = ctypes.POINTER(ctypes.c_void_p)
-    pointer_to_new_obj: ctypes.POINTER(ctypes.c_void_p) = pythonapi.PyObject_Realloc(ctypes.pointer(ctypes.py_object(obj)))
+    pointer_to_new_obj: ctypes.POINTER(ctypes.c_void_p) = pythonapi.PyObject_Realloc(
+        ctypes.pointer(ctypes.py_object(obj)))
     new_mem = memory_object(ctypes.addressof(pointer_to_new_obj), len)
     new_mem[:] = obj_mem[:] + (b'\x00' * (len - __builtins__.len(obj_mem[:])))
     return ctypes.py_object.from_address(ctypes.addressof(pointer_to_new_obj)).value
@@ -1914,7 +1926,8 @@ class new_terminalcolors:
             bg_col = bg + 8
         else:
             bg_col = bg + 16
-        return cls.reset + (cls.bold * (text_type % 2) + cls.underline * ((text_type >> 1) % 2) + cls.inverse * ((text_type >> 2) % 2)) + getattr(cls, x[bg_col]) + getattr(cls, x[fg_col])
+        return cls.reset + (cls.bold * (text_type % 2) + cls.underline * ((text_type >> 1) % 2) + cls.inverse * (
+                    (text_type >> 2) % 2)) + getattr(cls, x[bg_col]) + getattr(cls, x[fg_col])
 
 
 def wrapper_maker(func: Callable, func_arg: Callable = None):
@@ -1925,6 +1938,7 @@ def wrapper_maker(func: Callable, func_arg: Callable = None):
 
     func_arg -> Function to be ran to make the local_vars
     Returns local_vars to be used with func"""
+
     def wrapper(*args, **kwargs):
         local_vars = {}
 
@@ -1980,7 +1994,7 @@ def structure(klass):
     klass = type.__new__(type, klass_name, tuple(klass_bases), klass_dict)
     klass_name, klass_bases, klass_dict = StructureType.splittype(klass)
     klass_dict = klass_dict.copy()
-    klass_dict.setdefault('_struct_',[])
+    klass_dict.setdefault('_struct_', [])
     klass_dict.setdefault('__init__', object.__init__)
     klass_dict.setdefault('__getattribute__', object.__getattribute__)
     klass_dict.setdefault('__setattr__', object.__setattr__)
@@ -1994,7 +2008,6 @@ def structure(klass):
         z.extend(type(self)._struct_)
         return z
 
-    is_special = (lambda x: x.startswith('__') and x.endswith('__'))
     is_not_special = (lambda x: not (x.startswith('__') and x.endswith('__')))
     klass_dict['__dir__'] = new_dir
     klass_dict['_def_struct_'] = list(filter(is_not_special, klass_dict))
@@ -2023,8 +2036,8 @@ def structure(klass):
 
     def new_repr(self):
         return "<" + repr(type(self)).replace("<structure '", "").replace("'>", "") + " structure object at 0x" + (
-                    "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
-                                                                                                      "").upper()) + ">"
+                "0" * (16 - len(hex(id(self)).replace("0x", "").upper())) + hex(id(self)).replace("0x",
+                                                                                                  "").upper()) + ">"
 
     klass_dict['__init__'] = new_init
     klass_dict['__getattribute__'] = new_getattr
@@ -2034,4 +2047,68 @@ def structure(klass):
     return new_klass
 
 
+def Tuple_SetItem(tuple_object: tuple, pos: int, item: Any):
+    if len(tuple_object) <= pos:
+        raise IndexError('index out of range.')
+    t_mem = get_obj_mem(tuple_object)
+    pythonapi.Py_IncRef(item)
+    z = tuple_object[pos]
+    t_mem[24 + (8 * pos):32 + (8 * pos)] = id(item).to_bytes(8, 'little')
+    pythonapi.Py_DecRef(z)
+    return tuple_object
+
+
 structure = wrapper_maker(structure)
+
+
+def reloadModule(module_name: str, loadAllFromModule: bool = False):
+    globals()['partial_delete'](__import__(module_name))
+    globals()[module_name] = __import__(module_name)
+    if loadAllFromModule:
+        for k, v in globals()[module_name].__dict__.items():
+            globals()[k] = v
+
+
+def loadFromModuleAll(module: ModuleType):
+    for k, v in module.__dict__.items():
+        globals()[k] = v
+
+
+def file_size_comp(amount: Union[int, float, Decimal], asSmallAsPossible: bool = False):
+    f = ('', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y')
+    i = 0
+    n = Decimal(copy.copy(amount))
+    while Decimal(1000) <= n:
+        n /= Decimal(1000)
+        i += 1
+        if i == len(f) - 1:
+            break
+    z = f[i]
+    if not asSmallAsPossible:
+        if n >= 100:
+            return str(round(n, 1)) + z
+        elif n >= 10:
+            return str(round(n, 2)) + z
+        return str(round(n, 3)) + z
+    else:
+        return str(round(n)) + z
+
+
+def size_comp(amount: Union[int, float, Decimal], asSmallAsPossible: bool = False):
+    f = ('', 'K', 'M', 'B', 't', 'q', 'Q', 's', 'S', 'o', 'n', 'd', 'U', 'D', 'T', 'qu', 'Qu', 'se', 'Se', 'O', 'N', 'V')
+    i = 0
+    n = Decimal(copy.copy(amount))
+    while Decimal(1000) <= n:
+        n /= Decimal(1000)
+        i += 1
+        if i == len(f) - 1:
+            break
+    z = f[i]
+    if not asSmallAsPossible:
+        if n >= 100:
+            return str(round(n, 1)) + z
+        elif n >= 10:
+            return str(round(n, 2)) + z
+        return str(round(n, 3)) + z
+    else:
+        return str(round(n)) + z
