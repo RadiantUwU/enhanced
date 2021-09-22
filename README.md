@@ -1,6 +1,8 @@
 # enhanced
 Python module that adds lots of common stuff
 
+Uses https://github.com/clarete/forbiddenfruit
+
 Features:
 
 > Hashing of dictionaries
